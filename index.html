@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Polirobots Dagaforce: Autons Maker</title>
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
       --bg:      #0a0e14;
@@ -102,12 +102,12 @@
       border: 2px solid var(--accent2);
       box-shadow: 0 0 0 1px var(--border),
                   0 0 32px rgba(255, 77, 77, 0.15);
-      overflow: hidden;  /* recorta lo que salga del canvas al hacer pan */
+      overflow: hidden;
     }
 
     canvas {
       display: block;
-      cursor: grab;
+      cursor: crosshair;
     }
 
     canvas.grabbing { cursor: grabbing; }
@@ -155,25 +155,33 @@
   </div>
 
 <script>
-  /* ── Constantes del campo ── */
+  /* ── Constantes ── */
   const FIELD_IN = 144;
   const TILE_IN  = 24;
-  const SCALE    = 4;          // px base por pulgada
-  const SIZE_PX  = FIELD_IN * SCALE; // 576
+  const SCALE    = 4;
+  const SIZE_PX  = FIELD_IN * SCALE;
+  const COLS     = 'ABCDEF';
 
   const canvas   = document.getElementById('field');
   const ctx      = canvas.getContext('2d');
   const zoomEl   = document.getElementById('zoomVal');
   const cursorEl = document.getElementById('cursorPos');
 
-  /* ── Estado zoom/pan ── */
-  let zoom   = 1;
-  let panX   = 0;
-  let panY   = 0;
+  /* ── Zoom / pan ── */
+  let zoom = 1, panX = 0, panY = 0;
+  const ZOOM_MIN = 1, ZOOM_MAX = 10, ZOOM_STEP = 0.12;
 
-  const ZOOM_MIN  = 1;
-  const ZOOM_MAX  = 10;
-  const ZOOM_STEP = 0.12;
+  /* ── Snap ── */
+  let snapVertex = null;   // { ix, iy } enteros en pulgadas
+
+  /* ── Tooltip animation ── */
+  const TOOLTIP_DELAY = 900;   // ms quieto antes de mostrar
+  const ANIM_IN_DUR   = 260;   // ms fade-in + slide
+  let hoverTimer     = null;
+  let tooltipVisible = false;
+  let animStart      = null;
+  let animProgress   = 0;      // 0 → 1
+  let rafId          = null;
 
   /* ── Imagen de fondo ── */
   const fieldImg = new Image();
@@ -181,21 +189,51 @@
   fieldImg.onerror = () => render();
   fieldImg.src = 'TOP.png';
 
-  /* ═══════════════════════════════════════
-     RENDER — aplica transformación y dibuja
-  ═══════════════════════════════════════ */
+  /* ── Easing ── */
+  const easeOutExpo = t => t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+
+  /* ── Formato con coma ── */
+  const fmt = v => v.toFixed(1).replace('.', ',');
+
+  /* ═══════════════════════════════════
+     ANIMATION LOOP (tooltip solamente)
+  ═══════════════════════════════════ */
+  function startTooltipAnim() {
+    tooltipVisible = true;
+    animStart      = null;
+    animProgress   = 0;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(function loop(ts) {
+      if (!animStart) animStart = ts;
+      animProgress = Math.min(1, (ts - animStart) / ANIM_IN_DUR);
+      render();
+      if (animProgress < 1) rafId = requestAnimationFrame(loop);
+      else rafId = null;
+    });
+  }
+
+  function stopTooltip() {
+    tooltipVisible = false;
+    animProgress   = 0;
+    animStart      = null;
+    if (rafId)      { cancelAnimationFrame(rafId); rafId = null; }
+    if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
+  }
+
+  /* ═══════════════════════════════════
+     RENDER PRINCIPAL
+  ═══════════════════════════════════ */
   function render() {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, SIZE_PX, SIZE_PX);
     ctx.restore();
 
-    /* Aplica zoom centrado en panX/panY */
     ctx.save();
     ctx.translate(panX, panY);
     ctx.scale(zoom, zoom);
 
-    /* ① Imagen del campo */
+    /* ① Fondo / imagen */
     if (fieldImg.complete && fieldImg.naturalWidth > 0) {
       ctx.drawImage(fieldImg, 0, 0, SIZE_PX, SIZE_PX);
     } else {
@@ -209,8 +247,8 @@
     for (let i = 1; i < FIELD_IN; i++) {
       if (i % TILE_IN === 0) continue;
       const p = i * SCALE;
-      ctx.beginPath(); ctx.moveTo(p, 0);      ctx.lineTo(p, SIZE_PX); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, p);      ctx.lineTo(SIZE_PX, p); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p, 0);     ctx.lineTo(p, SIZE_PX); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, p);     ctx.lineTo(SIZE_PX, p); ctx.stroke();
     }
 
     /* ③ Vértices de pulgadas */
@@ -228,8 +266,8 @@
     ctx.lineWidth   = 1.2 / zoom;
     for (let i = 0; i <= FIELD_IN; i += TILE_IN) {
       const p = i * SCALE;
-      ctx.beginPath(); ctx.moveTo(p, 0);      ctx.lineTo(p, SIZE_PX); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, p);      ctx.lineTo(SIZE_PX, p); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p, 0);     ctx.lineTo(p, SIZE_PX); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, p);     ctx.lineTo(SIZE_PX, p); ctx.stroke();
     }
 
     /* ⑤ Vértices de tiles */
@@ -247,112 +285,210 @@
     ctx.font      = `${fontSize}px "Share Tech Mono", monospace`;
     ctx.fillStyle = 'rgba(0, 212, 255, 0.35)';
     ctx.textAlign = 'left';
-    const cols = 'ABCDEF';
     for (let c = 0; c < 6; c++) {
       for (let r = 0; r < 6; r++) {
-        ctx.fillText(cols[c] + (r + 1),
+        ctx.fillText(COLS[c] + (r + 1),
           c * TILE_IN * SCALE + 5 / zoom,
           r * TILE_IN * SCALE + 14 / zoom);
       }
     }
 
     ctx.restore();
+
+    /* ⑦ Overlay (coordenadas de pantalla) */
+    if (snapVertex) drawOverlay();
   }
 
-  /* ═══════════════════════════════════════
-     ZOOM con rueda del mouse
-     — El punto bajo el cursor queda fijo —
-  ═══════════════════════════════════════ */
+  /* ═══════════════════════════════════
+     OVERLAY — círculo + tooltip
+  ═══════════════════════════════════ */
+  function drawOverlay() {
+    const { ix, iy } = snapVertex;
+    const sx = panX + ix * SCALE * zoom;
+    const sy = panY + iy * SCALE * zoom;
+
+    /* — Círculo rojo simple — */
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 77, 77, 0.9)';
+    ctx.lineWidth   = 1.8;
+    ctx.shadowColor = 'rgba(255, 77, 77, 0.4)';
+    ctx.shadowBlur  = 7;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 7, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    /* — Tooltip — */
+    if (!tooltipVisible || animProgress <= 0) return;
+
+    const t     = easeOutExpo(animProgress);
+    const alpha = t;
+    const slide = (1 - t) * 8;   // baja 8px al aparecer, luego sube (entra desde abajo)
+
+    /* Datos */
+    const colIdx = Math.min(5, Math.floor(ix / TILE_IN));
+    const rowIdx = Math.min(5, Math.floor(iy / TILE_IN));
+    const tile   = COLS[colIdx] + (rowIdx + 1);
+    const relX   = ix - colIdx * TILE_IN;
+    const relY   = iy - rowIdx * TILE_IN;
+
+    const line1 = `${fmt(ix)}, ${fmt(iy)} in`;
+    const line2 = `${tile}  ·  ${fmt(relX)}, ${fmt(relY)} in`;
+
+    /* Medir textos */
+    const F1 = '500 12px "Roboto Mono", monospace';
+    const F2 = '400 10px "Roboto Mono", monospace';
+    ctx.font = F1; const w1 = ctx.measureText(line1).width;
+    ctx.font = F2; const w2 = ctx.measureText(line2).width;
+
+    const padX = 13, padY = 9, gap = 5;
+    const h1 = 13, h2 = 11;
+    const bw  = Math.max(w1, w2) + padX * 2;
+    const bh  = padY * 2 + h1 + gap + h2;
+    const rr  = 4;
+
+    /* Posición: arriba-derecha con rebote */
+    let tx = sx + 12;
+    let ty = sy - bh - 12;
+    if (tx + bw > SIZE_PX - 6) tx = sx - bw - 12;
+    if (ty < 4)               ty = sy + 14;
+    if (ty + bh > SIZE_PX - 6) ty = SIZE_PX - bh - 6;
+
+    ty += slide;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    /* Sombra elevada */
+    ctx.shadowColor   = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur    = 20;
+    ctx.shadowOffsetY = 6;
+
+    /* Fondo */
+    ctx.fillStyle = '#111827';   // gray-900 Material tone
+    rRect(ctx, tx, ty, bw, bh, rr);
+    ctx.fill();
+
+    /* Borde izquierdo (acento rojo, estilo Android) */
+    ctx.shadowBlur    = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.fillStyle     = '#ff4d4d';
+    rRect(ctx, tx, ty + 7, 3, bh - 14, 1.5);
+    ctx.fill();
+
+    /* Divisor interno */
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth   = 1;
+    const divY = ty + padY + h1 + gap * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(tx + padX + 6, divY);
+    ctx.lineTo(tx + bw - padX, divY);
+    ctx.stroke();
+
+    /* Línea 1 — posición absoluta, blanco suave */
+    ctx.font         = F1;
+    ctx.fillStyle    = 'rgba(225, 235, 255, 0.93)';
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(line1, tx + padX + 6, ty + padY);
+
+    /* Línea 2 — tile · relativo, cyan atenuado */
+    ctx.font      = F2;
+    ctx.fillStyle = 'rgba(0, 212, 255, 0.6)';
+    ctx.fillText(line2, tx + padX + 6, ty + padY + h1 + gap);
+
+    ctx.restore();
+  }
+
+  /* ── Rounded rect helper ── */
+  function rRect(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.lineTo(x + w - r, y);
+    c.arcTo(x + w, y, x + w, y + r, r);
+    c.lineTo(x + w, y + h - r);
+    c.arcTo(x + w, y + h, x + w - r, y + h, r);
+    c.lineTo(x + r, y + h);
+    c.arcTo(x, y + h, x, y + h - r, r);
+    c.lineTo(x, y + r);
+    c.arcTo(x, y, x + r, y, r);
+    c.closePath();
+  }
+
+  /* ═══════════════════════════════════
+     ZOOM
+  ═══════════════════════════════════ */
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
-
     const rect    = canvas.getBoundingClientRect();
-    const mouseX  = e.clientX - rect.left;   // posición en el canvas
+    const mouseX  = e.clientX - rect.left;
     const mouseY  = e.clientY - rect.top;
+    const newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom * (1 + (e.deltaY < 0 ? 1 : -1) * ZOOM_STEP)));
 
-    const delta   = e.deltaY < 0 ? 1 : -1;
-    const factor  = 1 + delta * ZOOM_STEP;
-    const newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom * factor));
-
-    /* Ajustar pan para que el punto bajo el cursor no se mueva */
     panX = mouseX - (mouseX - panX) * (newZoom / zoom);
     panY = mouseY - (mouseY - panY) * (newZoom / zoom);
-
     zoom = newZoom;
 
-    /* Limitar pan para no dejar el canvas vacío */
     clampPan();
-
     zoomEl.textContent = zoom.toFixed(2) + '×';
     render();
   }, { passive: false });
 
-  /* ═══════════════════════════════════════
-     PAN arrastrando con el mouse
-  ═══════════════════════════════════════ */
-  let dragging  = false;
-  let lastMouseX = 0;
-  let lastMouseY = 0;
+  /* ═══════════════════════════════════
+     PAN
+  ═══════════════════════════════════ */
+  let dragging = false, lastMouseX = 0, lastMouseY = 0;
 
   canvas.addEventListener('mousedown', e => {
-    dragging   = true;
-    lastMouseX = e.clientX;
-    lastMouseY = e.clientY;
+    dragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY;
     canvas.classList.add('grabbing');
+    stopTooltip();
   });
 
   window.addEventListener('mousemove', e => {
     if (!dragging) return;
-    const dx = e.clientX - lastMouseX;
-    const dy = e.clientY - lastMouseY;
-    lastMouseX = e.clientX;
-    lastMouseY = e.clientY;
-
-    panX += dx;
-    panY += dy;
-    clampPan();
-    render();
+    panX += e.clientX - lastMouseX; panY += e.clientY - lastMouseY;
+    lastMouseX = e.clientX; lastMouseY = e.clientY;
+    clampPan(); render();
   });
 
-  window.addEventListener('mouseup', () => {
-    dragging = false;
-    canvas.classList.remove('grabbing');
-  });
+  window.addEventListener('mouseup', () => { dragging = false; canvas.classList.remove('grabbing'); });
 
-  /* Impide que el pan deje ver área vacía fuera del campo */
   function clampPan() {
-    const fieldSize = SIZE_PX * zoom;
-    /* borde derecho/inferior: el campo no puede alejarse a la izquierda/arriba */
-    panX = Math.min(0, panX);
-    panY = Math.min(0, panY);
-    /* borde izquierdo/superior: el campo no puede alejarse a la derecha/abajo */
-    panX = Math.max(SIZE_PX - fieldSize, panX);
-    panY = Math.max(SIZE_PX - fieldSize, panY);
+    const fs = SIZE_PX * zoom;
+    panX = Math.min(0, Math.max(SIZE_PX - fs, panX));
+    panY = Math.min(0, Math.max(SIZE_PX - fs, panY));
   }
 
-  /* ═══════════════════════════════════════
-     CURSOR: coordenadas en pulgadas y pies
-  ═══════════════════════════════════════ */
+  /* ═══════════════════════════════════
+     CURSOR + SNAP
+  ═══════════════════════════════════ */
   canvas.addEventListener('mousemove', e => {
     if (dragging) return;
-    const rect  = canvas.getBoundingClientRect();
-    const mx    = e.clientX - rect.left;
-    const my    = e.clientY - rect.top;
 
-    /* Convertir posición de pantalla → coordenadas del campo */
-    const fieldX = (mx - panX) / zoom;
-    const fieldY = (my - panY) / zoom;
+    const rect = canvas.getBoundingClientRect();
+    const inX  = ((e.clientX - rect.left) - panX) / zoom / SCALE;
+    const inY  = ((e.clientY - rect.top)  - panY) / zoom / SCALE;
 
-    const ix = (fieldX / SCALE).toFixed(1);
-    const iy = (fieldY / SCALE).toFixed(1);
-    const fx = (fieldX / SCALE / 12).toFixed(2);
-    const fy = (fieldY / SCALE / 12).toFixed(2);
+    cursorEl.textContent = `(${inX.toFixed(1)}in, ${inY.toFixed(1)}in) / (${(inX/12).toFixed(2)}ft, ${(inY/12).toFixed(2)}ft)`;
 
-    cursorEl.textContent = `(${ix}in, ${iy}in) / (${fx}ft, ${fy}ft)`;
+    const cIX = Math.max(0, Math.min(FIELD_IN, Math.round(inX)));
+    const cIY = Math.max(0, Math.min(FIELD_IN, Math.round(inY)));
+
+    if (!snapVertex || snapVertex.ix !== cIX || snapVertex.iy !== cIY) {
+      snapVertex = { ix: cIX, iy: cIY };
+      stopTooltip();
+      render();
+      hoverTimer = setTimeout(startTooltipAnim, TOOLTIP_DELAY);
+    }
   });
 
   canvas.addEventListener('mouseleave', () => {
-    if (!dragging) cursorEl.textContent = '—';
+    if (dragging) return;
+    snapVertex = null;
+    stopTooltip();
+    cursorEl.textContent = '—';
+    render();
   });
 
   /* ── Rulers ── */
@@ -365,7 +501,6 @@
     }
   });
 
-  /* Render inicial */
   render();
 </script>
 </body>
