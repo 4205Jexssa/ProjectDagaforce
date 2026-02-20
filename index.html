@@ -7,14 +7,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg:        #0a0e14;
-      --surface:   #111827;
-      --border:    #1f2d40;
-      --accent:    #00d4ff;
-      --accent2:   #ff4d4d;
-      --text:      #c9d1d9;
-      --muted:     #4a5568;
-      --field-bg:  #0d1a10;
+      --bg:      #0a0e14;
+      --border:  #1f2d40;
+      --accent:  #00d4ff;
+      --accent2: #ff4d4d;
+      --text:    #c9d1d9;
+      --muted:   #4a5568;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -59,42 +57,16 @@
     .legend {
       display: flex;
       gap: 24px;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
       font-family: 'Share Tech Mono', monospace;
       font-size: 0.72rem;
     }
 
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--muted);
-    }
-
+    .legend-item { display: flex; align-items: center; gap: 8px; color: var(--muted); }
     .legend-swatch { width: 28px; height: 3px; border-radius: 2px; }
     .swatch-tile   { background: var(--accent); }
     .swatch-inch   { background: rgba(255,255,255,0.25); }
     .swatch-border { background: var(--accent2); }
-
-    #imgStatus {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.65rem;
-      padding: 3px 10px;
-      border-radius: 4px;
-      margin-bottom: 10px;
-    }
-    #imgStatus.ok      { color: #4ade80; border: 1px solid #4ade8044; }
-    #imgStatus.err     { color: #f87171; border: 1px solid #f8717144; }
-    #imgStatus.loading { color: var(--muted); border: 1px solid var(--border); }
-
-    .field-wrapper {
-      position: relative;
-      border: 2px solid var(--accent2);
-      box-shadow: 0 0 0 1px var(--border),
-                  0 0 32px rgba(255, 77, 77, 0.15);
-    }
-
-    canvas { display: block; }
 
     .ruler-x {
       display: flex;
@@ -125,6 +97,21 @@
       text-align: right;
     }
 
+    .field-wrapper {
+      position: relative;
+      border: 2px solid var(--accent2);
+      box-shadow: 0 0 0 1px var(--border),
+                  0 0 32px rgba(255, 77, 77, 0.15);
+      overflow: hidden;  /* recorta lo que salga del canvas al hacer pan */
+    }
+
+    canvas {
+      display: block;
+      cursor: grab;
+    }
+
+    canvas.grabbing { cursor: grabbing; }
+
     .info-bar {
       margin-top: 14px;
       font-family: 'Share Tech Mono', monospace;
@@ -151,13 +138,10 @@
     <div class="legend-item"><div class="legend-swatch swatch-border"></div>Borde del campo</div>
   </div>
 
-  <div id="imgStatus" class="loading">⏳ Cargando TOP.png…</div>
-
   <div class="ruler-x" id="rulerX"></div>
 
   <div class="ruler-y-wrapper">
     <div class="ruler-y" id="rulerY"></div>
-
     <div class="field-wrapper">
       <canvas id="field" width="576" height="576"></canvas>
     </div>
@@ -166,55 +150,62 @@
   <div class="info-bar">
     <div>CAMPO: <span>144 × 144 in</span></div>
     <div>TILES: <span>6 × 6</span></div>
-    <div>ESCALA: <span>4 px / in</span></div>
+    <div>ZOOM: <span id="zoomVal">1.00×</span></div>
     <div>CURSOR: <span id="cursorPos">—</span></div>
   </div>
 
 <script>
+  /* ── Constantes del campo ── */
   const FIELD_IN = 144;
   const TILE_IN  = 24;
-  const SCALE    = 4;
+  const SCALE    = 4;          // px base por pulgada
   const SIZE_PX  = FIELD_IN * SCALE; // 576
 
-  const canvas = document.getElementById('field');
-  const ctx    = canvas.getContext('2d');
-  const status = document.getElementById('imgStatus');
+  const canvas   = document.getElementById('field');
+  const ctx      = canvas.getContext('2d');
+  const zoomEl   = document.getElementById('zoomVal');
+  const cursorEl = document.getElementById('cursorPos');
 
-  /* ─────────────────────────────────────────
-     Carga TOP.png (misma carpeta que el HTML)
-     4320×4320 px → se escala a 576×576 en el canvas
-  ───────────────────────────────────────── */
+  /* ── Estado zoom/pan ── */
+  let zoom   = 1;
+  let panX   = 0;
+  let panY   = 0;
+
+  const ZOOM_MIN  = 1;
+  const ZOOM_MAX  = 10;
+  const ZOOM_STEP = 0.12;
+
+  /* ── Imagen de fondo ── */
   const fieldImg = new Image();
-
-  fieldImg.onload = () => {
-    status.className  = 'ok';
-    status.textContent = `✔ TOP.png cargada (${fieldImg.naturalWidth}×${fieldImg.naturalHeight}px → escalada a ${SIZE_PX}×${SIZE_PX}px)`;
-    render(fieldImg);
-  };
-
-  fieldImg.onerror = () => {
-    status.className  = 'err';
-    status.textContent = '✘ TOP.png no encontrada — mostrando campo vacío';
-    render(null);
-  };
-
+  fieldImg.onload  = () => render();
+  fieldImg.onerror = () => render();
   fieldImg.src = 'TOP.png';
 
-  /* ── Render completo ── */
-  function render(img) {
+  /* ═══════════════════════════════════════
+     RENDER — aplica transformación y dibuja
+  ═══════════════════════════════════════ */
+  function render() {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, SIZE_PX, SIZE_PX);
+    ctx.restore();
 
-    // ① Fondo: imagen del campo escalada exactamente al canvas
-    if (img) {
-      ctx.drawImage(img, 0, 0, SIZE_PX, SIZE_PX);
+    /* Aplica zoom centrado en panX/panY */
+    ctx.save();
+    ctx.translate(panX, panY);
+    ctx.scale(zoom, zoom);
+
+    /* ① Imagen del campo */
+    if (fieldImg.complete && fieldImg.naturalWidth > 0) {
+      ctx.drawImage(fieldImg, 0, 0, SIZE_PX, SIZE_PX);
     } else {
       ctx.fillStyle = '#0d1a10';
       ctx.fillRect(0, 0, SIZE_PX, SIZE_PX);
     }
 
-    // ② Grid de pulgadas
+    /* ② Grid de pulgadas */
     ctx.strokeStyle = 'rgba(255,255,255,0.07)';
-    ctx.lineWidth   = 0.5;
+    ctx.lineWidth   = 0.5 / zoom;
     for (let i = 1; i < FIELD_IN; i++) {
       if (i % TILE_IN === 0) continue;
       const p = i * SCALE;
@@ -222,47 +213,149 @@
       ctx.beginPath(); ctx.moveTo(0, p);      ctx.lineTo(SIZE_PX, p); ctx.stroke();
     }
 
-    // ③ Vértices de pulgadas (puntos pequeños)
-    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    /* ③ Vértices de pulgadas */
+    const dotR = Math.max(0.5, 0.75 / zoom);
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
     for (let x = 0; x <= FIELD_IN; x++) {
       for (let y = 0; y <= FIELD_IN; y++) {
         if (x % TILE_IN === 0 && y % TILE_IN === 0) continue;
-        ctx.fillRect(x * SCALE - 0.75, y * SCALE - 0.75, 1.5, 1.5);
+        ctx.fillRect(x * SCALE - dotR, y * SCALE - dotR, dotR * 2, dotR * 2);
       }
     }
 
-    // ④ Grid de tiles (cada 24 in = 2 ft)
+    /* ④ Grid de tiles */
     ctx.strokeStyle = 'rgba(0, 212, 255, 0.35)';
-    ctx.lineWidth   = 1.2;
+    ctx.lineWidth   = 1.2 / zoom;
     for (let i = 0; i <= FIELD_IN; i += TILE_IN) {
       const p = i * SCALE;
       ctx.beginPath(); ctx.moveTo(p, 0);      ctx.lineTo(p, SIZE_PX); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(0, p);      ctx.lineTo(SIZE_PX, p); ctx.stroke();
     }
 
-    // ⑤ Vértices de tiles (círculos cyan)
+    /* ⑤ Vértices de tiles */
     ctx.fillStyle = 'rgba(0, 212, 255, 0.7)';
     for (let x = 0; x <= FIELD_IN; x += TILE_IN) {
       for (let y = 0; y <= FIELD_IN; y += TILE_IN) {
         ctx.beginPath();
-        ctx.arc(x * SCALE, y * SCALE, 3, 0, Math.PI * 2);
+        ctx.arc(x * SCALE, y * SCALE, 3 / zoom, 0, Math.PI * 2);
         ctx.fill();
       }
     }
 
-    // ⑥ Etiquetas de tiles (A1…F6)
-    ctx.font      = '10px "Share Tech Mono", monospace';
+    /* ⑥ Etiquetas de tiles */
+    const fontSize = Math.max(6, 10 / zoom);
+    ctx.font      = `${fontSize}px "Share Tech Mono", monospace`;
     ctx.fillStyle = 'rgba(0, 212, 255, 0.35)';
     ctx.textAlign = 'left';
     const cols = 'ABCDEF';
     for (let c = 0; c < 6; c++) {
       for (let r = 0; r < 6; r++) {
-        ctx.fillText(cols[c] + (r + 1), c * TILE_IN * SCALE + 5, r * TILE_IN * SCALE + 14);
+        ctx.fillText(cols[c] + (r + 1),
+          c * TILE_IN * SCALE + 5 / zoom,
+          r * TILE_IN * SCALE + 14 / zoom);
       }
     }
+
+    ctx.restore();
   }
 
-  /* ── Rulers (pies 0–12) ── */
+  /* ═══════════════════════════════════════
+     ZOOM con rueda del mouse
+     — El punto bajo el cursor queda fijo —
+  ═══════════════════════════════════════ */
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+
+    const rect    = canvas.getBoundingClientRect();
+    const mouseX  = e.clientX - rect.left;   // posición en el canvas
+    const mouseY  = e.clientY - rect.top;
+
+    const delta   = e.deltaY < 0 ? 1 : -1;
+    const factor  = 1 + delta * ZOOM_STEP;
+    const newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom * factor));
+
+    /* Ajustar pan para que el punto bajo el cursor no se mueva */
+    panX = mouseX - (mouseX - panX) * (newZoom / zoom);
+    panY = mouseY - (mouseY - panY) * (newZoom / zoom);
+
+    zoom = newZoom;
+
+    /* Limitar pan para no dejar el canvas vacío */
+    clampPan();
+
+    zoomEl.textContent = zoom.toFixed(2) + '×';
+    render();
+  }, { passive: false });
+
+  /* ═══════════════════════════════════════
+     PAN arrastrando con el mouse
+  ═══════════════════════════════════════ */
+  let dragging  = false;
+  let lastMouseX = 0;
+  let lastMouseY = 0;
+
+  canvas.addEventListener('mousedown', e => {
+    dragging   = true;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+    canvas.classList.add('grabbing');
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - lastMouseX;
+    const dy = e.clientY - lastMouseY;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+
+    panX += dx;
+    panY += dy;
+    clampPan();
+    render();
+  });
+
+  window.addEventListener('mouseup', () => {
+    dragging = false;
+    canvas.classList.remove('grabbing');
+  });
+
+  /* Impide que el pan deje ver área vacía fuera del campo */
+  function clampPan() {
+    const fieldSize = SIZE_PX * zoom;
+    /* borde derecho/inferior: el campo no puede alejarse a la izquierda/arriba */
+    panX = Math.min(0, panX);
+    panY = Math.min(0, panY);
+    /* borde izquierdo/superior: el campo no puede alejarse a la derecha/abajo */
+    panX = Math.max(SIZE_PX - fieldSize, panX);
+    panY = Math.max(SIZE_PX - fieldSize, panY);
+  }
+
+  /* ═══════════════════════════════════════
+     CURSOR: coordenadas en pulgadas y pies
+  ═══════════════════════════════════════ */
+  canvas.addEventListener('mousemove', e => {
+    if (dragging) return;
+    const rect  = canvas.getBoundingClientRect();
+    const mx    = e.clientX - rect.left;
+    const my    = e.clientY - rect.top;
+
+    /* Convertir posición de pantalla → coordenadas del campo */
+    const fieldX = (mx - panX) / zoom;
+    const fieldY = (my - panY) / zoom;
+
+    const ix = (fieldX / SCALE).toFixed(1);
+    const iy = (fieldY / SCALE).toFixed(1);
+    const fx = (fieldX / SCALE / 12).toFixed(2);
+    const fy = (fieldY / SCALE / 12).toFixed(2);
+
+    cursorEl.textContent = `(${ix}in, ${iy}in) / (${fx}ft, ${fy}ft)`;
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    if (!dragging) cursorEl.textContent = '—';
+  });
+
+  /* ── Rulers ── */
   ['rulerX', 'rulerY'].forEach(id => {
     const el = document.getElementById(id);
     for (let i = 0; i <= 12; i++) {
@@ -272,17 +365,8 @@
     }
   });
 
-  /* ── Cursor: coordenadas en tiempo real ── */
-  const cursorEl = document.getElementById('cursorPos');
-  canvas.addEventListener('mousemove', e => {
-    const r  = canvas.getBoundingClientRect();
-    const px = e.clientX - r.left;
-    const py = e.clientY - r.top;
-    cursorEl.textContent =
-      `(${(px/SCALE).toFixed(1)}in, ${(py/SCALE).toFixed(1)}in) / ` +
-      `(${(px/SCALE/12).toFixed(2)}ft, ${(py/SCALE/12).toFixed(2)}ft)`;
-  });
-  canvas.addEventListener('mouseleave', () => { cursorEl.textContent = '—'; });
+  /* Render inicial */
+  render();
 </script>
 </body>
 </html>
