@@ -14,8 +14,6 @@
       --accent2:   #ff4d4d;
       --text:      #c9d1d9;
       --muted:     #4a5568;
-      --tile-line: rgba(0, 212, 255, 0.35);
-      --inch-line: rgba(255, 255, 255, 0.06);
       --field-bg:  #0d1a10;
     }
 
@@ -61,7 +59,7 @@
     .legend {
       display: flex;
       gap: 24px;
-      margin-bottom: 16px;
+      margin-bottom: 8px;
       font-family: 'Share Tech Mono', monospace;
       font-size: 0.72rem;
     }
@@ -73,38 +71,31 @@
       color: var(--muted);
     }
 
-    .legend-swatch {
-      width: 28px;
-      height: 3px;
-      border-radius: 2px;
-    }
+    .legend-swatch { width: 28px; height: 3px; border-radius: 2px; }
+    .swatch-tile   { background: var(--accent); }
+    .swatch-inch   { background: rgba(255,255,255,0.25); }
+    .swatch-border { background: var(--accent2); }
 
-    .swatch-tile  { background: var(--accent); }
-    .swatch-inch  { background: rgba(255,255,255,0.25); }
-    .swatch-border{ background: var(--accent2); }
+    #imgStatus {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem;
+      padding: 3px 10px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    #imgStatus.ok      { color: #4ade80; border: 1px solid #4ade8044; }
+    #imgStatus.err     { color: #f87171; border: 1px solid #f8717144; }
+    #imgStatus.loading { color: var(--muted); border: 1px solid var(--border); }
 
     .field-wrapper {
       position: relative;
       border: 2px solid var(--accent2);
       box-shadow: 0 0 0 1px var(--border),
-                  0 0 32px rgba(255, 77, 77, 0.15),
-                  inset 0 0 60px rgba(0,0,0,0.6);
+                  0 0 32px rgba(255, 77, 77, 0.15);
     }
 
-    canvas {
-      display: block;
-      background: var(--field-bg);
-    }
+    canvas { display: block; }
 
-    .coords {
-      position: absolute;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 10px;
-      color: var(--muted);
-      pointer-events: none;
-    }
-
-    /* Ruler labels – top & left */
     .ruler-x {
       display: flex;
       justify-content: space-between;
@@ -160,11 +151,11 @@
     <div class="legend-item"><div class="legend-swatch swatch-border"></div>Borde del campo</div>
   </div>
 
-  <!-- Ruler X (pies) -->
+  <div id="imgStatus" class="loading">⏳ Cargando TOP.png…</div>
+
   <div class="ruler-x" id="rulerX"></div>
 
   <div class="ruler-y-wrapper">
-    <!-- Ruler Y (pies) -->
     <div class="ruler-y" id="rulerY"></div>
 
     <div class="field-wrapper">
@@ -180,48 +171,76 @@
   </div>
 
 <script>
-  const FIELD_IN = 144;      // pulgadas totales
-  const TILE_IN  = 24;       // 2 ft por tile
-  const SCALE    = 4;        // px por pulgada
-  const SIZE_PX  = FIELD_IN * SCALE; // 576 px
+  const FIELD_IN = 144;
+  const TILE_IN  = 24;
+  const SCALE    = 4;
+  const SIZE_PX  = FIELD_IN * SCALE; // 576
 
-  const canvas  = document.getElementById('field');
-  const ctx     = canvas.getContext('2d');
+  const canvas = document.getElementById('field');
+  const ctx    = canvas.getContext('2d');
+  const status = document.getElementById('imgStatus');
 
-  /* ── Dibuja el campo ── */
-  function drawField() {
+  /* ─────────────────────────────────────────
+     Carga TOP.png (misma carpeta que el HTML)
+     4320×4320 px → se escala a 576×576 en el canvas
+  ───────────────────────────────────────── */
+  const fieldImg = new Image();
+
+  fieldImg.onload = () => {
+    status.className  = 'ok';
+    status.textContent = `✔ TOP.png cargada (${fieldImg.naturalWidth}×${fieldImg.naturalHeight}px → escalada a ${SIZE_PX}×${SIZE_PX}px)`;
+    render(fieldImg);
+  };
+
+  fieldImg.onerror = () => {
+    status.className  = 'err';
+    status.textContent = '✘ TOP.png no encontrada — mostrando campo vacío';
+    render(null);
+  };
+
+  fieldImg.src = 'TOP.png';
+
+  /* ── Render completo ── */
+  function render(img) {
     ctx.clearRect(0, 0, SIZE_PX, SIZE_PX);
 
-    // — Grid de pulgadas —
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.lineWidth   = 0.5;
-    for (let i = 1; i < FIELD_IN; i++) {
-      // saltar las líneas de tile (se dibujan después)
-      if (i % TILE_IN === 0) continue;
-      const p = i * SCALE;
-      ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, SIZE_PX); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(SIZE_PX, p); ctx.stroke();
+    // ① Fondo: imagen del campo escalada exactamente al canvas
+    if (img) {
+      ctx.drawImage(img, 0, 0, SIZE_PX, SIZE_PX);
+    } else {
+      ctx.fillStyle = '#0d1a10';
+      ctx.fillRect(0, 0, SIZE_PX, SIZE_PX);
     }
 
-    // — Vértices en cada pulgada —
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    // ② Grid de pulgadas
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.lineWidth   = 0.5;
+    for (let i = 1; i < FIELD_IN; i++) {
+      if (i % TILE_IN === 0) continue;
+      const p = i * SCALE;
+      ctx.beginPath(); ctx.moveTo(p, 0);      ctx.lineTo(p, SIZE_PX); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, p);      ctx.lineTo(SIZE_PX, p); ctx.stroke();
+    }
+
+    // ③ Vértices de pulgadas (puntos pequeños)
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
     for (let x = 0; x <= FIELD_IN; x++) {
       for (let y = 0; y <= FIELD_IN; y++) {
-        if (x % TILE_IN === 0 && y % TILE_IN === 0) continue; // los de tile son más grandes
+        if (x % TILE_IN === 0 && y % TILE_IN === 0) continue;
         ctx.fillRect(x * SCALE - 0.75, y * SCALE - 0.75, 1.5, 1.5);
       }
     }
 
-    // — Grid de tiles (2 ft = 24 in) —
+    // ④ Grid de tiles (cada 24 in = 2 ft)
     ctx.strokeStyle = 'rgba(0, 212, 255, 0.35)';
     ctx.lineWidth   = 1.2;
     for (let i = 0; i <= FIELD_IN; i += TILE_IN) {
       const p = i * SCALE;
-      ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, SIZE_PX); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(SIZE_PX, p); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p, 0);      ctx.lineTo(p, SIZE_PX); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, p);      ctx.lineTo(SIZE_PX, p); ctx.stroke();
     }
 
-    // — Vértices de tiles —
+    // ⑤ Vértices de tiles (círculos cyan)
     ctx.fillStyle = 'rgba(0, 212, 255, 0.7)';
     for (let x = 0; x <= FIELD_IN; x += TILE_IN) {
       for (let y = 0; y <= FIELD_IN; y += TILE_IN) {
@@ -231,49 +250,37 @@
       }
     }
 
-    // — Etiquetas de tiles (A1…F6) —
+    // ⑥ Etiquetas de tiles (A1…F6)
     ctx.font      = '10px "Share Tech Mono", monospace';
-    ctx.fillStyle = 'rgba(0, 212, 255, 0.3)';
+    ctx.fillStyle = 'rgba(0, 212, 255, 0.35)';
     ctx.textAlign = 'left';
     const cols = 'ABCDEF';
     for (let c = 0; c < 6; c++) {
       for (let r = 0; r < 6; r++) {
-        const px = c * TILE_IN * SCALE + 5;
-        const py = r * TILE_IN * SCALE + 14;
-        ctx.fillText(cols[c] + (r + 1), px, py);
+        ctx.fillText(cols[c] + (r + 1), c * TILE_IN * SCALE + 5, r * TILE_IN * SCALE + 14);
       }
     }
   }
 
-  drawField();
+  /* ── Rulers (pies 0–12) ── */
+  ['rulerX', 'rulerY'].forEach(id => {
+    const el = document.getElementById(id);
+    for (let i = 0; i <= 12; i++) {
+      const d = document.createElement('div');
+      d.textContent = (i === 0 || i === 12) ? i + 'ft' : i;
+      el.appendChild(d);
+    }
+  });
 
-  /* ── Rulers ── */
-  const rulerX = document.getElementById('rulerX');
-  const rulerY = document.getElementById('rulerY');
-
-  for (let i = 0; i <= 12; i++) {
-    const d = document.createElement('div');
-    d.textContent = i === 0 || i === 12 ? i + 'ft' : i;
-    rulerX.appendChild(d);
-  }
-
-  for (let i = 0; i <= 12; i++) {
-    const d = document.createElement('div');
-    d.textContent = i === 0 || i === 12 ? i + 'ft' : i;
-    rulerY.appendChild(d);
-  }
-
-  /* ── Cursor coords ── */
+  /* ── Cursor: coordenadas en tiempo real ── */
   const cursorEl = document.getElementById('cursorPos');
   canvas.addEventListener('mousemove', e => {
-    const rect = canvas.getBoundingClientRect();
-    const px   = e.clientX - rect.left;
-    const py   = e.clientY - rect.top;
-    const ix   = (px / SCALE).toFixed(1);
-    const iy   = (py / SCALE).toFixed(1);
-    const fx   = (px / SCALE / 12).toFixed(2);
-    const fy   = (py / SCALE / 12).toFixed(2);
-    cursorEl.textContent = `(${ix}in, ${iy}in) / (${fx}ft, ${fy}ft)`;
+    const r  = canvas.getBoundingClientRect();
+    const px = e.clientX - r.left;
+    const py = e.clientY - r.top;
+    cursorEl.textContent =
+      `(${(px/SCALE).toFixed(1)}in, ${(py/SCALE).toFixed(1)}in) / ` +
+      `(${(px/SCALE/12).toFixed(2)}ft, ${(py/SCALE/12).toFixed(2)}ft)`;
   });
   canvas.addEventListener('mouseleave', () => { cursorEl.textContent = '—'; });
 </script>
