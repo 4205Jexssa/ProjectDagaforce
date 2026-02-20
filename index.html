@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Polirobots Dagaforce: Autons Maker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #0a0e14;
+      --surface:   #111827;
+      --border:    #1f2d40;
+      --accent:    #00d4ff;
+      --accent2:   #ff4d4d;
+      --text:      #c9d1d9;
+      --muted:     #4a5568;
+      --tile-line: rgba(0, 212, 255, 0.35);
+      --inch-line: rgba(255, 255, 255, 0.06);
+      --field-bg:  #0d1a10;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Rajdhani', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px;
+    }
+
+    header {
+      width: 100%;
+      max-width: 780px;
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+    }
+
+    header h1 {
+      font-size: 1.9rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    header span {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    .legend {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 16px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+    }
+
+    .legend-swatch {
+      width: 28px;
+      height: 3px;
+      border-radius: 2px;
+    }
+
+    .swatch-tile  { background: var(--accent); }
+    .swatch-inch  { background: rgba(255,255,255,0.25); }
+    .swatch-border{ background: var(--accent2); }
+
+    .field-wrapper {
+      position: relative;
+      border: 2px solid var(--accent2);
+      box-shadow: 0 0 0 1px var(--border),
+                  0 0 32px rgba(255, 77, 77, 0.15),
+                  inset 0 0 60px rgba(0,0,0,0.6);
+    }
+
+    canvas {
+      display: block;
+      background: var(--field-bg);
+    }
+
+    .coords {
+      position: absolute;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    /* Ruler labels – top & left */
+    .ruler-x {
+      display: flex;
+      justify-content: space-between;
+      width: 576px;
+      margin-bottom: 4px;
+      padding: 0 2px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .ruler-y-wrapper {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .ruler-y {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 576px;
+      padding: 2px 0;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .info-bar {
+      margin-top: 14px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+      display: flex;
+      gap: 32px;
+    }
+
+    .info-bar span { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1></h1>
+    <span>By: DevMaxD</span>
+  </header>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-swatch swatch-tile"></div>Línea de azulejo (2 ft)</div>
+    <div class="legend-item"><div class="legend-swatch swatch-inch"></div>Línea de pulgada (1 in)</div>
+    <div class="legend-item"><div class="legend-swatch swatch-border"></div>Borde del campo</div>
+  </div>
+
+  <!-- Ruler X (pies) -->
+  <div class="ruler-x" id="rulerX"></div>
+
+  <div class="ruler-y-wrapper">
+    <!-- Ruler Y (pies) -->
+    <div class="ruler-y" id="rulerY"></div>
+
+    <div class="field-wrapper">
+      <canvas id="field" width="576" height="576"></canvas>
+    </div>
+  </div>
+
+  <div class="info-bar">
+    <div>CAMPO: <span>144 × 144 in</span></div>
+    <div>TILES: <span>6 × 6</span></div>
+    <div>ESCALA: <span>4 px / in</span></div>
+    <div>CURSOR: <span id="cursorPos">—</span></div>
+  </div>
+
+<script>
+  const FIELD_IN = 144;      // pulgadas totales
+  const TILE_IN  = 24;       // 2 ft por tile
+  const SCALE    = 4;        // px por pulgada
+  const SIZE_PX  = FIELD_IN * SCALE; // 576 px
+
+  const canvas  = document.getElementById('field');
+  const ctx     = canvas.getContext('2d');
+
+  /* ── Dibuja el campo ── */
+  function drawField() {
+    ctx.clearRect(0, 0, SIZE_PX, SIZE_PX);
+
+    // — Grid de pulgadas —
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth   = 0.5;
+    for (let i = 1; i < FIELD_IN; i++) {
+      // saltar las líneas de tile (se dibujan después)
+      if (i % TILE_IN === 0) continue;
+      const p = i * SCALE;
+      ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, SIZE_PX); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(SIZE_PX, p); ctx.stroke();
+    }
+
+    // — Vértices en cada pulgada —
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    for (let x = 0; x <= FIELD_IN; x++) {
+      for (let y = 0; y <= FIELD_IN; y++) {
+        if (x % TILE_IN === 0 && y % TILE_IN === 0) continue; // los de tile son más grandes
+        ctx.fillRect(x * SCALE - 0.75, y * SCALE - 0.75, 1.5, 1.5);
+      }
+    }
+
+    // — Grid de tiles (2 ft = 24 in) —
+    ctx.strokeStyle = 'rgba(0, 212, 255, 0.35)';
+    ctx.lineWidth   = 1.2;
+    for (let i = 0; i <= FIELD_IN; i += TILE_IN) {
+      const p = i * SCALE;
+      ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, SIZE_PX); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(SIZE_PX, p); ctx.stroke();
+    }
+
+    // — Vértices de tiles —
+    ctx.fillStyle = 'rgba(0, 212, 255, 0.7)';
+    for (let x = 0; x <= FIELD_IN; x += TILE_IN) {
+      for (let y = 0; y <= FIELD_IN; y += TILE_IN) {
+        ctx.beginPath();
+        ctx.arc(x * SCALE, y * SCALE, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // — Etiquetas de tiles (A1…F6) —
+    ctx.font      = '10px "Share Tech Mono", monospace';
+    ctx.fillStyle = 'rgba(0, 212, 255, 0.3)';
+    ctx.textAlign = 'left';
+    const cols = 'ABCDEF';
+    for (let c = 0; c < 6; c++) {
+      for (let r = 0; r < 6; r++) {
+        const px = c * TILE_IN * SCALE + 5;
+        const py = r * TILE_IN * SCALE + 14;
+        ctx.fillText(cols[c] + (r + 1), px, py);
+      }
+    }
+  }
+
+  drawField();
+
+  /* ── Rulers ── */
+  const rulerX = document.getElementById('rulerX');
+  const rulerY = document.getElementById('rulerY');
+
+  for (let i = 0; i <= 12; i++) {
+    const d = document.createElement('div');
+    d.textContent = i === 0 || i === 12 ? i + 'ft' : i;
+    rulerX.appendChild(d);
+  }
+
+  for (let i = 0; i <= 12; i++) {
+    const d = document.createElement('div');
+    d.textContent = i === 0 || i === 12 ? i + 'ft' : i;
+    rulerY.appendChild(d);
+  }
+
+  /* ── Cursor coords ── */
+  const cursorEl = document.getElementById('cursorPos');
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const px   = e.clientX - rect.left;
+    const py   = e.clientY - rect.top;
+    const ix   = (px / SCALE).toFixed(1);
+    const iy   = (py / SCALE).toFixed(1);
+    const fx   = (px / SCALE / 12).toFixed(2);
+    const fy   = (py / SCALE / 12).toFixed(2);
+    cursorEl.textContent = `(${ix}in, ${iy}in) / (${fx}ft, ${fy}ft)`;
+  });
+  canvas.addEventListener('mouseleave', () => { cursorEl.textContent = '—'; });
+</script>
+</body>
+</html>
