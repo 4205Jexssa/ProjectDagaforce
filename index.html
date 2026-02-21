@@ -285,6 +285,79 @@
       flex-shrink: 0;
       transition: color .1s;
     }
+    /* ════ BLOCK CTX MENU ════ */
+    .blk-menu {
+      position:fixed;z-index:210;
+      background:#0f1925;border:1px solid var(--border2);
+      border-top:2px solid var(--cat-custom);border-radius:0 4px 4px 4px;
+      min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,.7);
+      display:none;flex-direction:column;overflow:hidden;
+      animation:ctxIn .12s cubic-bezier(.2,0,.2,1);
+    }
+    .blk-menu.open{display:flex;}
+    .blk-menu .ctx-header{border-top:none;color:var(--cat-custom);}
+
+    .blk-section{padding:8px 11px;display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--border);}
+    .blk-section:last-child{border-bottom:none;}
+    .blk-section-label{font-family:'Share Tech Mono',monospace;font-size:.55rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
+
+    /* Color picker row */
+    .blk-color-row{display:flex;gap:6px;}
+    .blk-color-btn{
+      flex:1;padding:5px 4px;border:2px solid transparent;border-radius:3px;
+      font-family:'Share Tech Mono',monospace;font-size:.62rem;letter-spacing:1px;
+      cursor:pointer;transition:all .12s;text-transform:uppercase;font-weight:600;
+    }
+    .blk-color-btn.red{background:rgba(255,80,80,.15);color:#ff5050;border-color:rgba(255,80,80,.3);}
+    .blk-color-btn.red:hover,.blk-color-btn.red.sel{background:rgba(255,80,80,.28);border-color:#ff5050;}
+    .blk-color-btn.blue{background:rgba(60,130,255,.15);color:#4d8fff;border-color:rgba(60,130,255,.3);}
+    .blk-color-btn.blue:hover,.blk-color-btn.blue.sel{background:rgba(60,130,255,.28);border-color:#4d8fff;}
+
+    /* Place chips */
+    .blk-place-grid{display:flex;flex-wrap:wrap;gap:4px;}
+    .blk-place-btn{
+      padding:4px 8px;border-radius:3px;border:1px solid var(--border2);
+      background:var(--bg3);color:var(--muted2);
+      font-family:'Share Tech Mono',monospace;font-size:.58rem;letter-spacing:.5px;
+      cursor:pointer;transition:all .12s;white-space:nowrap;
+    }
+    .blk-place-btn:hover{border-color:var(--cat-custom);color:var(--text);}
+    .blk-place-btn.sel{border-color:var(--cat-custom);background:rgba(253,121,168,.12);color:var(--cat-custom);}
+
+    /* Field location pick row */
+    .blk-loc-row{
+      display:flex;align-items:center;gap:8px;
+      font-family:'Share Tech Mono',monospace;font-size:.62rem;
+    }
+    .blk-loc-val{color:var(--accent);flex:1;}
+    .blk-pick-btn{
+      padding:4px 9px;border:1px solid var(--accent);border-radius:3px;
+      background:rgba(0,212,255,.07);color:var(--accent);
+      font-family:'Share Tech Mono',monospace;font-size:.58rem;letter-spacing:1px;
+      cursor:pointer;transition:background .12s;text-transform:uppercase;
+    }
+    .blk-pick-btn:hover{background:rgba(0,212,255,.16);}
+    .blk-pick-btn.picking{background:rgba(0,212,255,.22);animation:pickPulse 1s infinite;}
+    @keyframes pickPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,212,255,.4);}50%{box-shadow:0 0 0 4px rgba(0,212,255,.0);}}
+
+    .blk-delete-btn{
+      margin:4px 8px 8px;padding:5px;border:1px solid rgba(255,77,77,.3);border-radius:3px;
+      background:rgba(255,77,77,.07);color:var(--accent2);
+      font-family:'Share Tech Mono',monospace;font-size:.6rem;letter-spacing:1px;
+      cursor:pointer;transition:background .12s;text-transform:uppercase;text-align:center;
+    }
+    .blk-delete-btn:hover{background:rgba(255,77,77,.18);}
+
+    /* Pick-mode banner overlay on canvas */
+    .pick-banner{
+      position:absolute;top:0;left:0;right:0;
+      background:rgba(0,212,255,.12);border-bottom:2px solid var(--accent);
+      font-family:'Share Tech Mono',monospace;font-size:.65rem;
+      color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;
+      padding:5px 10px;pointer-events:none;
+      display:none;text-align:center;z-index:5;
+    }
+    .pick-banner.active{display:block;}
   </style>
 </head>
 <body>
@@ -307,6 +380,7 @@
     <div class="ruler-y-wrapper">
       <div class="ruler-y" id="rulerY"></div>
       <div class="field-wrapper">
+        <div class="pick-banner" id="pick-banner">Haz clic en un vértice para fijar la posición</div>
         <canvas id="field" width="576" height="576"></canvas>
       </div>
     </div>
@@ -407,6 +481,45 @@
   <button class="ctx-item" id="ctx-teleport">
     <span class="ctx-icon">⊙</span> Teletransportar robot aquí
   </button>
+  <button class="ctx-item" id="ctx-place-block">
+    <span class="ctx-icon">▪</span> Colocar bloque aquí
+  </button>
+</div>
+
+<!-- Block context menu -->
+<div class="blk-menu" id="blk-menu">
+  <div class="ctx-header" id="blk-menu-title">Bloque</div>
+
+  <div class="blk-section">
+    <div class="blk-section-label">Color</div>
+    <div class="blk-color-row">
+      <button class="blk-color-btn red" data-color="red">🔴 Rojo</button>
+      <button class="blk-color-btn blue" data-color="blue">🔵 Azul</button>
+    </div>
+  </div>
+
+  <div class="blk-section">
+    <div class="blk-section-label">Ubicación</div>
+    <div class="blk-place-grid" id="blk-place-grid">
+      <button class="blk-place-btn" data-place="intake">Intake</button>
+      <button class="blk-place-btn" data-place="storage">Storage</button>
+      <button class="blk-place-btn" data-place="holding">Holding</button>
+      <button class="blk-place-btn" data-place="longgoal">Long Goal</button>
+      <button class="blk-place-btn" data-place="lowergoal">Lower Goal</button>
+      <button class="blk-place-btn" data-place="uppergoal">Upper Goal</button>
+      <button class="blk-place-btn" data-place="field">En campo…</button>
+    </div>
+  </div>
+
+  <div class="blk-section" id="blk-loc-section" style="display:none;">
+    <div class="blk-section-label">Posición en campo</div>
+    <div class="blk-loc-row">
+      <span class="blk-loc-val" id="blk-loc-val">—</span>
+      <button class="blk-pick-btn" id="blk-pick-btn">Elegir</button>
+    </div>
+  </div>
+
+  <button class="blk-delete-btn" id="blk-delete-btn">Eliminar bloque</button>
 </div>
 
 <script>
@@ -446,6 +559,7 @@ function render(){
   for(let c=0;c<6;c++)for(let r=0;r<6;r++)ctx.fillText(COLS[c]+(r+1),c*TILE_IN*SCALE+5/zoom,r*TILE_IN*SCALE+14/zoom);
   ctx.restore();
   drawRobot();
+  drawFieldBlocks();
   if(snapVertex)drawOverlay();
 }
 
@@ -586,8 +700,25 @@ window.addEventListener('mouseup',e=>{
       const inX=(cx-panX)/zoom/SCALE,inY=(cy-panY)/zoom/SCALE;
       const vx=Math.round(inX),vy=Math.round(inY);
       const dsx=Math.abs((vx-inX)*SCALE*zoom),dsy=Math.abs((vy-inY)*SCALE*zoom);
-      if(dsx<=14&&dsy<=14){
-        openCtxMenu(e.clientX, e.clientY, Math.max(0,Math.min(FIELD_IN,vx)), Math.max(0,Math.min(FIELD_IN,vy)));
+      const nearVertex=dsx<=14&&dsy<=14;
+
+      if(pickingLocation && editingBlock){
+        // Lock block location to clicked vertex
+        editingBlock.location={x:Math.max(0,Math.min(FIELD_IN,vx)),y:Math.max(0,Math.min(FIELD_IN,vy))};
+        blkLocVal.textContent=`(${editingBlock.location.x}, ${editingBlock.location.y}) in`;
+        pickingLocation=false;
+        blkPickBtn.classList.remove('picking');
+        pickBanner.classList.remove('active');
+        blkMenu.classList.add('open'); // re-show menu
+        scheduleSave();render();
+      } else {
+        // Check block click first
+        const hit=blockAtScreen(cx,cy);
+        if(hit){
+          openBlkMenu(hit,e.clientX,e.clientY);
+        } else if(nearVertex){
+          openCtxMenu(e.clientX,e.clientY,Math.max(0,Math.min(FIELD_IN,vx)),Math.max(0,Math.min(FIELD_IN,vy)));
+        }
       }
     }
   }
@@ -871,12 +1002,14 @@ function saveAll(){
   setCookie('df_robot',JSON.stringify(rData));
   setCookie('df_templates',JSON.stringify(codeTemplates));
   setCookie('df_custom2',JSON.stringify(customDefs));
+  setCookie('df_blocks',JSON.stringify(fieldBlocks));
 }
 function loadAll(){
   const rRaw=getCookie('df_robot');
   if(rRaw){try{const d=JSON.parse(rRaw);Object.entries(d).forEach(([id,val])=>{const el=document.getElementById(id);if(!el)return;if(el.type==='checkbox')el.checked=val;else el.value=val;});}catch(e){}}
   const tRaw=getCookie('df_templates');if(tRaw){try{codeTemplates=JSON.parse(tRaw);}catch(e){}}
   const cRaw=getCookie('df_custom2');if(cRaw){try{customDefs=JSON.parse(cRaw);}catch(e){}}
+  const bRaw=getCookie('df_blocks');if(bRaw){try{fieldBlocks=JSON.parse(bRaw);}catch(e){}}
 }
 
 /* ════════════════════════════════════════════
@@ -895,6 +1028,189 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 document.querySelectorAll('#tab-robot input').forEach(el=>{
   el.addEventListener('change',scheduleSave);
   el.addEventListener('input',()=>render());
+});
+
+/* ════════════════════════════════════════════
+   BLOCK SYSTEM
+════════════════════════════════════════════ */
+// Block: { uid, color:'red'|'blue', place:'intake'|'storage'|'holding'|'longgoal'|'lowergoal'|'uppergoal'|'field', location:{x,y}|null }
+let fieldBlocks = [];
+
+const imgRed  = new Image(); imgRed.src  = 'block_red.png';
+const imgBlue = new Image(); imgBlue.src = 'block_blue.png';
+imgRed.onload = imgBlue.onload = ()=>render();
+
+const BLOCK_SIZE_IN = 3.25;          // flat-to-flat distance in inches
+const BLOCK_APOTHEM = BLOCK_SIZE_IN / 2;          // 1.625 in
+const BLOCK_SIDES   = 18;
+const BLOCK_R_IN    = BLOCK_APOTHEM / Math.cos(Math.PI / BLOCK_SIDES); // circumradius ≈ 1.650 in
+const BLOCK_HIT_PX  = 10; // hit radius in screen px for clicking
+
+function drawPoly18(cx, cy, r){
+  ctx.beginPath();
+  for(let i=0;i<BLOCK_SIDES;i++){
+    const a = (i / BLOCK_SIDES) * Math.PI * 2 - Math.PI / 2; // start at top
+    const x = cx + r * Math.cos(a);
+    const y = cy + r * Math.sin(a);
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  }
+  ctx.closePath();
+}
+
+function drawFieldBlocks(){
+  const onField = fieldBlocks.filter(b=>b.place==='field'&&b.location);
+  onField.forEach(b=>{
+    const sx = panX + b.location.x * SCALE * zoom;
+    const sy = panY + b.location.y * SCALE * zoom;
+    const rpx = BLOCK_R_IN * SCALE * zoom;   // circumradius in screen px
+    const dpx = BLOCK_SIZE_IN * SCALE * zoom; // flat-to-flat in px (for image)
+    const img = b.color==='red' ? imgRed : imgBlue;
+
+    ctx.save();
+    if(img.complete && img.naturalWidth>0){
+      ctx.drawImage(img, sx-dpx/2, sy-dpx/2, dpx, dpx);
+    } else {
+      // Fallback: 18-sided polygon
+      ctx.fillStyle   = b.color==='red' ? 'rgba(255,80,80,.85)' : 'rgba(60,130,255,.85)';
+      ctx.strokeStyle = 'rgba(255,255,255,.6)';
+      ctx.lineWidth   = 1.2;
+      drawPoly18(sx, sy, rpx);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Selection ring
+    if(editingBlock && editingBlock.uid===b.uid){
+      ctx.strokeStyle='rgba(253,121,168,.9)';ctx.lineWidth=2;
+      drawPoly18(sx, sy, rpx + 3);
+      ctx.stroke();
+    }
+    ctx.restore();
+  });
+}
+
+function blockAtScreen(sx, sy){
+  const onField = fieldBlocks.filter(b=>b.place==='field'&&b.location);
+  for(let i=onField.length-1;i>=0;i--){
+    const b=onField[i];
+    const bsx=panX+b.location.x*SCALE*zoom;
+    const bsy=panY+b.location.y*SCALE*zoom;
+    const rpx=BLOCK_R_IN*SCALE*zoom;
+    const dist=Math.hypot(sx-bsx,sy-bsy);
+    if(dist<=rpx+BLOCK_HIT_PX) return b;
+  }
+  return null;
+}
+
+/* ── Block context menu ── */
+let editingBlock = null;
+let pickingLocation = false;
+
+const blkMenu       = document.getElementById('blk-menu');
+const blkMenuTitle  = document.getElementById('blk-menu-title');
+const blkLocSection = document.getElementById('blk-loc-section');
+const blkLocVal     = document.getElementById('blk-loc-val');
+const blkPickBtn    = document.getElementById('blk-pick-btn');
+const pickBanner    = document.getElementById('pick-banner');
+
+function openBlkMenu(block, screenX, screenY){
+  editingBlock = block;
+  pickingLocation = false;
+  blkPickBtn.classList.remove('picking');
+  pickBanner.classList.remove('active');
+
+  blkMenuTitle.textContent = `Bloque · ${block.color === 'red' ? '🔴' : '🔵'} ${block.color}`;
+
+  // Color buttons
+  document.querySelectorAll('.blk-color-btn').forEach(b=>{
+    b.classList.toggle('sel', b.dataset.color===block.color);
+  });
+
+  // Place buttons
+  document.querySelectorAll('.blk-place-btn').forEach(b=>{
+    b.classList.toggle('sel', b.dataset.place===block.place);
+  });
+
+  // Location section
+  blkLocSection.style.display = block.place==='field' ? '' : 'none';
+  if(block.location) blkLocVal.textContent=`(${block.location.x}, ${block.location.y}) in`;
+  else blkLocVal.textContent='—';
+
+  // Position
+  const mw=230,mh=300,ww=window.innerWidth,wh=window.innerHeight;
+  let left=screenX,top=screenY;
+  if(left+mw>ww-8) left=screenX-mw;
+  if(top+mh>wh-8) top=screenY-mh;
+  blkMenu.style.left=left+'px';blkMenu.style.top=top+'px';
+  blkMenu.classList.add('open');
+  closeCtxMenu();
+  render();
+}
+
+function closeBlkMenu(){
+  blkMenu.classList.remove('open');
+  editingBlock=null;
+  pickingLocation=false;
+  blkPickBtn.classList.remove('picking');
+  pickBanner.classList.remove('active');
+  render();
+}
+
+document.querySelectorAll('.blk-color-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    if(!editingBlock)return;
+    editingBlock.color=btn.dataset.color;
+    blkMenuTitle.textContent=`Bloque · ${editingBlock.color==='red'?'🔴':'🔵'} ${editingBlock.color}`;
+    document.querySelectorAll('.blk-color-btn').forEach(b=>b.classList.toggle('sel',b.dataset.color===editingBlock.color));
+    scheduleSave();render();
+  });
+});
+
+document.querySelectorAll('.blk-place-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    if(!editingBlock)return;
+    editingBlock.place=btn.dataset.place;
+    if(editingBlock.place!=='field') editingBlock.location=null;
+    document.querySelectorAll('.blk-place-btn').forEach(b=>b.classList.toggle('sel',b.dataset.place===editingBlock.place));
+    blkLocSection.style.display=editingBlock.place==='field'?'':'none';
+    blkLocVal.textContent=editingBlock.location?`(${editingBlock.location.x}, ${editingBlock.location.y}) in`:'—';
+    scheduleSave();render();
+  });
+});
+
+blkPickBtn.addEventListener('click',()=>{
+  if(!editingBlock)return;
+  pickingLocation=!pickingLocation;
+  blkPickBtn.classList.toggle('picking',pickingLocation);
+  pickBanner.classList.toggle('active',pickingLocation);
+  // Hide menu while picking so it's not in the way
+  if(pickingLocation) blkMenu.classList.remove('open');
+});
+
+document.getElementById('blk-delete-btn').addEventListener('click',()=>{
+  if(!editingBlock)return;
+  const idx=fieldBlocks.findIndex(b=>b.uid===editingBlock.uid);
+  if(idx!==-1) fieldBlocks.splice(idx,1);
+  closeBlkMenu();scheduleSave();
+});
+
+// Close on outside click
+window.addEventListener('mousedown',e=>{
+  if(!blkMenu.contains(e.target)&&!pickingLocation) closeBlkMenu();
+});
+
+/* ── Vertex context: place block ── */
+document.getElementById('ctx-place-block').addEventListener('click',()=>{
+  if(!ctxVertex)return;
+  const b={uid:String(Date.now()),color:'red',place:'field',location:{x:ctxVertex.x,y:ctxVertex.y}};
+  fieldBlocks.push(b);
+  closeCtxMenu();
+  // Open block menu right after placing
+  const rect=canvas.getBoundingClientRect();
+  const sx=panX+ctxVertex.x*SCALE*zoom+rect.left;
+  const sy=panY+ctxVertex.y*SCALE*zoom+rect.top;
+  openBlkMenu(b, sx+14, sy-10);
+  scheduleSave();render();
 });
 
 /* ════════════════════════════════════════════
