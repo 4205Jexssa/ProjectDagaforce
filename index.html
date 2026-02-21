@@ -389,6 +389,13 @@
       <div>TILES: <span>6 × 6</span></div>
       <div>ZOOM: <span id="zoomVal">1.00×</span></div>
       <div class="cursor-cell">CURSOR: <span id="cursorPos">—</span></div>
+      <button id="btn-reset-blocks" title="Restaurar posición por defecto de los bloques" style="
+        margin-left:auto;flex-shrink:0;
+        background:none;border:1px solid var(--border);border-radius:2px;
+        color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:.58rem;
+        letter-spacing:1px;padding:2px 8px;cursor:pointer;white-space:nowrap;
+        transition:color .15s,border-color .15s;
+      ">↺ reset</button>
     </div>
   </div>
 
@@ -1009,7 +1016,9 @@ function loadAll(){
   if(rRaw){try{const d=JSON.parse(rRaw);Object.entries(d).forEach(([id,val])=>{const el=document.getElementById(id);if(!el)return;if(el.type==='checkbox')el.checked=val;else el.value=val;});}catch(e){}}
   const tRaw=getCookie('df_templates');if(tRaw){try{codeTemplates=JSON.parse(tRaw);}catch(e){}}
   const cRaw=getCookie('df_custom2');if(cRaw){try{customDefs=JSON.parse(cRaw);}catch(e){}}
-  const bRaw=getCookie('df_blocks');if(bRaw){try{fieldBlocks=JSON.parse(bRaw);}catch(e){}}
+  const bRaw=getCookie('df_blocks');
+  if(bRaw){try{fieldBlocks=JSON.parse(bRaw);}catch(e){fieldBlocks=deepCloneDefaults();}}
+  // else fieldBlocks stays as deepCloneDefaults() set at declaration
 }
 
 /* ════════════════════════════════════════════
@@ -1033,8 +1042,41 @@ document.querySelectorAll('#tab-robot input').forEach(el=>{
 /* ════════════════════════════════════════════
    BLOCK SYSTEM
 ════════════════════════════════════════════ */
+const DEFAULT_BLOCKS = [
+  {uid:"d0",  color:"red",  place:"field", location:{x:48,  y:48}},
+  {uid:"d1",  color:"red",  place:"field", location:{x:48,  y:51}},
+  {uid:"d2",  color:"red",  place:"field", location:{x:51,  y:48}},
+  {uid:"d3",  color:"red",  place:"field", location:{x:96,  y:48}},
+  {uid:"d4",  color:"red",  place:"field", location:{x:93,  y:48}},
+  {uid:"d5",  color:"red",  place:"field", location:{x:96,  y:51}},
+  {uid:"d6",  color:"blue", place:"field", location:{x:2,   y:23}},
+  {uid:"d7",  color:"blue", place:"field", location:{x:2,   y:26}},
+  {uid:"d8",  color:"blue", place:"field", location:{x:143, y:23}},
+  {uid:"d9",  color:"blue", place:"field", location:{x:143, y:26}},
+  {uid:"d10", color:"red",  place:"field", location:{x:25,  y:71}},
+  {uid:"d11", color:"red",  place:"field", location:{x:25,  y:68}},
+  {uid:"d12", color:"red",  place:"field", location:{x:119, y:71}},
+  {uid:"d13", color:"red",  place:"field", location:{x:119, y:68}},
+  {uid:"d14", color:"blue", place:"field", location:{x:25,  y:74}},
+  {uid:"d15", color:"blue", place:"field", location:{x:25,  y:77}},
+  {uid:"d16", color:"blue", place:"field", location:{x:119, y:74}},
+  {uid:"d17", color:"blue", place:"field", location:{x:119, y:77}},
+  {uid:"d18", color:"blue", place:"field", location:{x:96,  y:96}},
+  {uid:"d19", color:"blue", place:"field", location:{x:96,  y:93}},
+  {uid:"d20", color:"blue", place:"field", location:{x:93,  y:96}},
+  {uid:"d21", color:"blue", place:"field", location:{x:48,  y:96}},
+  {uid:"d22", color:"blue", place:"field", location:{x:48,  y:93}},
+  {uid:"d23", color:"blue", place:"field", location:{x:51,  y:96}},
+  {uid:"d24", color:"red",  place:"field", location:{x:2,   y:118}},
+  {uid:"d25", color:"red",  place:"field", location:{x:2,   y:121}},
+  {uid:"d26", color:"red",  place:"field", location:{x:142, y:118}},
+  {uid:"d27", color:"red",  place:"field", location:{x:142, y:121}},
+];
+
+function deepCloneDefaults(){ return DEFAULT_BLOCKS.map(b=>({...b, location:{...b.location}})); }
+
 // Block: { uid, color:'red'|'blue', place:'intake'|'storage'|'holding'|'longgoal'|'lowergoal'|'uppergoal'|'field', location:{x,y}|null }
-let fieldBlocks = [];
+let fieldBlocks = deepCloneDefaults();
 
 const imgRed  = new Image(); imgRed.src  = 'block_red.png';
 const imgBlue = new Image(); imgBlue.src = 'block_blue.png';
@@ -1216,6 +1258,16 @@ document.getElementById('ctx-place-block').addEventListener('click',()=>{
 /* ════════════════════════════════════════════
    INIT
 ════════════════════════════════════════════ */
+document.getElementById('btn-reset-blocks').addEventListener('click',()=>{
+  if(!confirm('¿Restaurar los bloques a la posición por defecto?')) return;
+  fieldBlocks = deepCloneDefaults();
+  closeBlkMenu();
+  scheduleSave();
+  render();
+});
+const resetBtn=document.getElementById('btn-reset-blocks');
+resetBtn.addEventListener('mouseenter',()=>{resetBtn.style.color='var(--accent)';resetBtn.style.borderColor='var(--accent)';});
+resetBtn.addEventListener('mouseleave',()=>{resetBtn.style.color='var(--muted)';resetBtn.style.borderColor='var(--border)';});
 loadAll();
 render();
 </script>
