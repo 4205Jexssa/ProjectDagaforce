@@ -1,507 +1,713 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Polirobots Dagaforce: Autons Maker</title>
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet"/>
   <style>
     :root {
       --bg:      #0a0e14;
+      --bg2:     #0d1320;
+      --bg3:     #111827;
+      --bg4:     #0f1925;
+      --bg5:     #080c12;
       --border:  #1f2d40;
+      --border2: #1a2740;
       --accent:  #00d4ff;
       --accent2: #ff4d4d;
       --text:    #c9d1d9;
       --muted:   #4a5568;
+      --muted2:  #6b7a8d;
+      --cat-move:   #00d4ff;
+      --cat-mech:   #ff9f43;
+      --cat-goal:   #00c97d;
+      --cat-store:  #a29bfe;
+      --cat-clr:    #fdcb6e;
+      --cat-custom: #fd79a8;
     }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 20px;}
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    header{width:100%;max-width:1100px;display:flex;align-items:baseline;gap:16px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:16px;}
+    header h1{font-size:1.9rem;font-weight:700;letter-spacing:2px;color:var(--accent);text-transform:uppercase;}
+    header span{font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--muted);letter-spacing:1px;}
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Rajdhani', sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 32px 16px;
+    .legend{display:flex;gap:24px;margin-bottom:10px;font-family:'Share Tech Mono',monospace;font-size:.72rem;width:100%;max-width:1100px;}
+    .legend-item{display:flex;align-items:center;gap:8px;color:var(--muted);}
+    .legend-swatch{width:28px;height:3px;border-radius:2px;}
+    .swatch-tile{background:var(--accent);}.swatch-inch{background:rgba(255,255,255,.25);}.swatch-border{background:var(--accent2);}
+
+    .workspace{display:flex;align-items:flex-start;gap:20px;width:100%;max-width:1100px;}
+
+    /* ── Field ── */
+    .field-col{display:flex;flex-direction:column;align-items:flex-start;flex-shrink:0;}
+    .ruler-x{display:flex;justify-content:space-between;width:576px;margin-bottom:4px;padding:0 2px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);}
+    .ruler-y-wrapper{display:flex;align-items:flex-start;gap:6px;}
+    .ruler-y{display:flex;flex-direction:column;justify-content:space-between;height:576px;padding:2px 0;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);text-align:right;}
+    .field-wrapper{position:relative;border:2px solid var(--accent2);box-shadow:0 0 0 1px var(--border),0 0 32px rgba(255,77,77,.15);overflow:hidden;}
+    canvas{display:block;cursor:crosshair;}
+    canvas.grabbing{cursor:grabbing;}
+    .info-bar{margin-top:14px;font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted);letter-spacing:1px;display:flex;gap:32px;}
+    .info-bar span{color:var(--accent);}
+
+    /* ════ PANEL ════ */
+    .robot-panel{
+      width:310px;flex-shrink:0;background:var(--bg2);
+      border:1px solid var(--border2);border-top:2px solid var(--accent);
+      display:flex;flex-direction:column;box-shadow:0 0 24px rgba(0,0,0,.4);
+      height:640px;
     }
+    .panel-header{padding:11px 16px 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);background:rgba(0,212,255,.04);flex-shrink:0;}
+    .panel-header-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);flex-shrink:0;}
+    .panel-title{font-size:.85rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--accent);font-family:'Share Tech Mono',monospace;}
 
-    header {
-      width: 100%;
-      max-width: 780px;
-      display: flex;
-      align-items: baseline;
-      gap: 16px;
-      margin-bottom: 28px;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 16px;
+    .panel-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .tab-btn{flex:1;padding:9px 4px;background:none;border:none;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:.62rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;margin-bottom:-1px;}
+    .tab-btn:hover{color:var(--text);}
+    .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+    .tab-pane{display:none;flex:1;overflow-y:auto;flex-direction:column;min-height:0;}
+    .tab-pane.active{display:flex;}
+    .tab-pane::-webkit-scrollbar{width:4px;}
+    .tab-pane::-webkit-scrollbar-track{background:transparent;}
+    .tab-pane::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+    /* ── Robot tab ── */
+    .panel-body{padding:14px 14px 18px;display:flex;flex-direction:column;gap:0;}
+    .section-label{font-family:'Share Tech Mono',monospace;font-size:.6rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:14px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;}
+    .section-label::before{content:'';width:3px;height:3px;background:var(--accent);border-radius:50%;flex-shrink:0;}
+    .section-label:first-child{margin-top:2px;}
+    .field-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;}
+    .field-label{font-size:.8rem;font-weight:600;color:var(--text);line-height:1.2;flex:1;min-width:0;}
+    .field-label small{display:block;font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--muted);font-weight:400;letter-spacing:.5px;margin-top:1px;}
+    .num-input-wrap{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border2);border-radius:3px;overflow:hidden;flex-shrink:0;transition:border-color .15s;}
+    .num-input-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,212,255,.1);}
+    .num-input-wrap input{background:transparent;border:none;outline:none;color:var(--accent);font-family:'Share Tech Mono',monospace;font-size:.78rem;width:58px;padding:5px 6px;text-align:right;}
+    .num-input-wrap input::-webkit-inner-spin-button,.num-input-wrap input::-webkit-outer-spin-button{-webkit-appearance:none;}
+    .num-input-wrap input[type=number]{-moz-appearance:textfield;}
+    .num-unit{font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--muted);padding:0 6px 0 2px;white-space:nowrap;}
+    .toggle-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;}
+    .toggle-label{font-size:.8rem;font-weight:600;color:var(--text);flex:1;line-height:1.25;}
+    .toggle-label small{display:block;font-family:'Share Tech Mono',monospace;font-size:.59rem;color:var(--muted);font-weight:400;margin-top:1px;}
+    .toggle{position:relative;width:34px;height:18px;flex-shrink:0;}
+    .toggle input{opacity:0;width:0;height:0;position:absolute;}
+    .toggle-track{position:absolute;inset:0;background:#2a3a4a;border-radius:9px;border:1px solid var(--border2);transition:background .2s,border-color .2s;cursor:pointer;}
+    .toggle-thumb{position:absolute;width:12px;height:12px;background:var(--muted);border-radius:50%;top:2px;left:2px;transition:transform .2s cubic-bezier(.4,0,.2,1),background .2s;pointer-events:none;}
+    .toggle input:checked~.toggle-track{background:rgba(0,212,255,.12);border-color:var(--accent);}
+    .toggle input:checked~.toggle-track .toggle-thumb{transform:translateX(16px);background:var(--accent);box-shadow:0 0 6px rgba(0,212,255,.6);}
+
+    /* ════ CÓDIGO TAB ════ */
+    .code-section{padding:10px 11px 14px;display:flex;flex-direction:column;flex:1;min-height:0;gap:0;}
+
+    .cs-label{font-family:'Share Tech Mono',monospace;font-size:.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:7px;margin-top:12px;display:flex;align-items:center;gap:5px;}
+    .cs-label::before{content:'';width:3px;height:3px;border-radius:50%;flex-shrink:0;}
+    .cs-label.std::before{background:var(--accent);}
+    .cs-label.custom::before{background:var(--cat-custom);}
+    .cs-label:first-child{margin-top:2px;}
+
+    .code-hint{font-family:'Share Tech Mono',monospace;font-size:.57rem;color:var(--muted2);background:var(--bg4);border:1px solid var(--border);border-radius:3px;padding:6px 9px;margin-bottom:10px;line-height:1.6;}
+    .code-hint b{color:var(--accent);}
+
+    /* ── Template list ── */
+    #template-list{display:flex;flex-direction:column;gap:5px;}
+
+    .tmpl-row{
+      background:var(--bg4);border:1px solid var(--border2);
+      border-left:3px solid var(--muted);border-radius:0 3px 3px 0;
+      padding:6px 8px 7px;display:flex;flex-direction:column;gap:5px;
     }
-
-    header h1 {
-      font-size: 1.9rem;
-      font-weight: 700;
-      letter-spacing: 2px;
-      color: var(--accent);
-      text-transform: uppercase;
+    .tmpl-sig{font-family:'Share Tech Mono',monospace;font-size:.62rem;display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+    .tmpl-sig .t-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+    .tmpl-sig .t-name{font-weight:500;}
+    .tmpl-sig .t-args{color:var(--muted);font-size:.57rem;}
+    .tmpl-input{
+      width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:3px;
+      color:var(--muted2);font-family:'Roboto Mono',monospace;font-size:.63rem;
+      padding:5px 7px;outline:none;transition:border-color .15s,color .15s;
     }
+    .tmpl-input::placeholder{color:var(--muted);font-style:italic;}
+    .tmpl-input:focus{border-color:var(--accent);color:var(--text);}
+    .tmpl-input.filled{color:var(--accent);}
+    .tmpl-preview{font-family:'Roboto Mono',monospace;font-size:.56rem;color:var(--muted);padding:1px 1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:12px;}
+    .tmpl-preview.ok{color:#00c97d;}
 
-    header span {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.75rem;
-      color: var(--muted);
-      letter-spacing: 1px;
+    /* ── Custom block builder ── */
+    .add-custom-btn{
+      display:flex;align-items:center;justify-content:center;gap:6px;
+      width:100%;padding:6px 8px;
+      background:none;border:1px dashed var(--border2);border-radius:3px;
+      color:var(--muted2);font-family:'Share Tech Mono',monospace;font-size:.6rem;
+      cursor:pointer;transition:border-color .15s,color .15s;letter-spacing:1px;text-transform:uppercase;
+      margin-top:4px;
     }
+    .add-custom-btn:hover{border-color:var(--cat-custom);color:var(--cat-custom);}
 
-    .legend {
-      display: flex;
-      gap: 24px;
-      margin-bottom: 10px;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.72rem;
+    #custom-list{display:flex;flex-direction:column;gap:6px;margin-top:4px;}
+
+    .custom-card{
+      background:var(--bg4);border:1px solid var(--border2);
+      border-left:3px solid var(--cat-custom);border-radius:0 4px 4px 0;
+      display:flex;flex-direction:column;overflow:hidden;
     }
-
-    .legend-item { display: flex; align-items: center; gap: 8px; color: var(--muted); }
-    .legend-swatch { width: 28px; height: 3px; border-radius: 2px; }
-    .swatch-tile   { background: var(--accent); }
-    .swatch-inch   { background: rgba(255,255,255,0.25); }
-    .swatch-border { background: var(--accent2); }
-
-    .ruler-x {
-      display: flex;
-      justify-content: space-between;
-      width: 576px;
-      margin-bottom: 4px;
-      padding: 0 2px;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 10px;
-      color: var(--muted);
+    .custom-card-header{
+      display:flex;align-items:center;gap:6px;
+      padding:5px 7px;background:rgba(0,0,0,.2);
+      font-family:'Share Tech Mono',monospace;font-size:.65rem;
     }
-
-    .ruler-y-wrapper {
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
+    .custom-card-name{color:var(--cat-custom);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .custom-card-del{
+      width:18px;height:18px;display:flex;align-items:center;justify-content:center;
+      background:none;border:1px solid var(--border);border-radius:2px;
+      color:var(--muted);font-size:.7rem;cursor:pointer;transition:color .12s,border-color .12s;
+      flex-shrink:0;
     }
+    .custom-card-del:hover{color:var(--accent2);border-color:var(--accent2);}
+    .custom-card-body{padding:7px 8px;display:flex;flex-direction:column;gap:6px;}
 
-    .ruler-y {
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      height: 576px;
-      padding: 2px 0;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 10px;
-      color: var(--muted);
-      text-align: right;
+    /* Inline text input */
+    .cc-field{display:flex;flex-direction:column;gap:3px;}
+    .cc-field-label{font-family:'Share Tech Mono',monospace;font-size:.56rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+    .cc-input{
+      width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:3px;
+      color:var(--text);font-family:'Roboto Mono',monospace;font-size:.63rem;
+      padding:4px 7px;outline:none;transition:border-color .15s;
     }
-
-    .field-wrapper {
-      position: relative;
-      border: 2px solid var(--accent2);
-      box-shadow: 0 0 0 1px var(--border),
-                  0 0 32px rgba(255, 77, 77, 0.15);
-      overflow: hidden;
+    .cc-input:focus{border-color:var(--cat-custom);}
+    .cc-input::placeholder{color:var(--muted);font-style:italic;}
+    .cc-tmpl-input{
+      width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:3px;
+      color:var(--muted2);font-family:'Roboto Mono',monospace;font-size:.63rem;
+      padding:4px 7px;outline:none;transition:border-color .15s,color .15s;
     }
+    .cc-tmpl-input:focus{border-color:var(--cat-custom);color:var(--text);}
+    .cc-tmpl-input.filled{color:var(--cat-custom);}
+    .cc-tmpl-input::placeholder{color:var(--muted);font-style:italic;}
 
-    canvas {
-      display: block;
-      cursor: crosshair;
+    /* Args editor */
+    .args-label{font-family:'Share Tech Mono',monospace;font-size:.56rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;justify-content:space-between;}
+    .args-add-btn{font-family:'Share Tech Mono',monospace;font-size:.55rem;color:var(--cat-custom);background:none;border:none;cursor:pointer;letter-spacing:1px;padding:0;}
+    .args-add-btn:hover{text-decoration:underline;}
+    .args-list{display:flex;flex-direction:column;gap:3px;}
+    .arg-row{display:flex;align-items:center;gap:4px;}
+    .arg-row input[type=text]{
+      flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:2px;
+      color:var(--text);font-family:'Roboto Mono',monospace;font-size:.6rem;
+      padding:3px 6px;outline:none;transition:border-color .15s;min-width:0;
     }
+    .arg-row input[type=text]:focus{border-color:var(--cat-custom);}
+    .arg-row input[type=text]::placeholder{color:var(--muted);font-style:italic;}
+    .arg-opt-label{font-family:'Share Tech Mono',monospace;font-size:.53rem;color:var(--muted);white-space:nowrap;cursor:pointer;display:flex;align-items:center;gap:2px;}
+    .arg-opt-label input{accent-color:var(--cat-custom);}
+    .arg-del-btn{width:16px;height:16px;display:flex;align-items:center;justify-content:center;background:none;border:1px solid var(--border);border-radius:2px;color:var(--muted);font-size:.6rem;cursor:pointer;flex-shrink:0;transition:color .12s,border-color .12s;}
+    .arg-del-btn:hover{color:var(--accent2);border-color:var(--accent2);}
 
-    canvas.grabbing { cursor: grabbing; }
+    .cc-preview{font-family:'Roboto Mono',monospace;font-size:.55rem;color:var(--muted);padding:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:11px;}
+    .cc-preview.ok{color:var(--cat-custom);}
 
-    .info-bar {
-      margin-top: 14px;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.7rem;
-      color: var(--muted);
-      letter-spacing: 1px;
-      display: flex;
-      gap: 32px;
+    /* New block form (collapsed) */
+    .new-block-form{
+      display:none;flex-direction:column;gap:6px;
+      padding:8px;background:var(--bg4);border:1px solid var(--border2);
+      border-top:2px solid var(--cat-custom);border-radius:0 0 4px 4px;
+      margin-top:-1px;
     }
+    .new-block-form.open{display:flex;}
+    .nbf-row{display:flex;gap:6px;}
+    .nbf-btn{flex:1;padding:5px;border:1px solid var(--border2);border-radius:3px;background:var(--bg3);color:var(--muted2);font-family:'Share Tech Mono',monospace;font-size:.6rem;letter-spacing:1px;cursor:pointer;transition:all .15s;text-transform:uppercase;}
+    .nbf-btn.ok{border-color:var(--cat-custom);color:var(--cat-custom);}
+    .nbf-btn.ok:hover{background:rgba(253,121,168,.1);}
+    .nbf-btn.cancel:hover{color:var(--text);}
 
-    .info-bar span { color: var(--accent); }
+    /* Scrollable inner area for code tab */
+    .code-scroll{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;}
+    .code-scroll::-webkit-scrollbar{width:3px;}
+    .code-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
   </style>
 </head>
 <body>
 
-  <header>
-    <h1>Dagaforce Tool</h1>
-    <span>By: DevMaxD</span>
-  </header>
+<header>
+  <h1>Dagaforce Tool</h1>
+  <span>By: DevMaxD</span>
+</header>
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch swatch-tile"></div>Línea de azulejo (2 ft)</div>
+  <div class="legend-item"><div class="legend-swatch swatch-inch"></div>Línea de pulgada (1 in)</div>
+  <div class="legend-item"><div class="legend-swatch swatch-border"></div>Borde del campo</div>
+</div>
 
-  <div class="legend">
-    <div class="legend-item"><div class="legend-swatch swatch-tile"></div>Línea de azulejo (2 ft)</div>
-    <div class="legend-item"><div class="legend-swatch swatch-inch"></div>Línea de pulgada (1 in)</div>
-    <div class="legend-item"><div class="legend-swatch swatch-border"></div>Borde del campo</div>
-  </div>
+<div class="workspace">
 
-  <div class="ruler-x" id="rulerX"></div>
-
-  <div class="ruler-y-wrapper">
-    <div class="ruler-y" id="rulerY"></div>
-    <div class="field-wrapper">
-      <canvas id="field" width="576" height="576"></canvas>
+  <!-- ── Campo ── -->
+  <div class="field-col">
+    <div class="ruler-x" id="rulerX"></div>
+    <div class="ruler-y-wrapper">
+      <div class="ruler-y" id="rulerY"></div>
+      <div class="field-wrapper">
+        <canvas id="field" width="576" height="576"></canvas>
+      </div>
+    </div>
+    <div class="info-bar">
+      <div>CAMPO: <span>144 × 144 in</span></div>
+      <div>TILES: <span>6 × 6</span></div>
+      <div>ZOOM: <span id="zoomVal">1.00×</span></div>
+      <div>CURSOR: <span id="cursorPos">—</span></div>
     </div>
   </div>
 
-  <div class="info-bar">
-    <div>CAMPO: <span>144 × 144 in</span></div>
-    <div>TILES: <span>6 × 6</span></div>
-    <div>ZOOM: <span id="zoomVal">1.00×</span></div>
-    <div>CURSOR: <span id="cursorPos">—</span></div>
-  </div>
+  <!-- ── Panel ── -->
+  <div class="robot-panel">
+    <div class="panel-header">
+      <div class="panel-header-dot"></div>
+      <span class="panel-title">Mi Robot</span>
+    </div>
+    <div class="panel-tabs">
+      <button class="tab-btn active" data-tab="robot">Robot</button>
+      <button class="tab-btn" data-tab="codigo">Código</button>
+    </div>
+
+    <!-- ══ ROBOT ══ -->
+    <div class="tab-pane active" id="tab-robot">
+      <div class="panel-body">
+        <div class="section-label">Dimensiones</div>
+        <div class="field-row"><div class="field-label">Largo</div><div class="num-input-wrap"><input id="r-largo" type="number" value="18.0" step="0.1" min="0"><span class="num-unit">in</span></div></div>
+        <div class="field-row"><div class="field-label">Ancho</div><div class="num-input-wrap"><input id="r-ancho" type="number" value="18.0" step="0.1" min="0"><span class="num-unit">in</span></div></div>
+        <div class="section-label">Punto de origen</div>
+        <div class="field-row"><div class="field-label">Offset centro <small>eje X</small></div><div class="num-input-wrap"><input id="r-ox" type="number" value="0.0" step="0.1"><span class="num-unit">in</span></div></div>
+        <div class="field-row"><div class="field-label">Offset centro <small>eje Y</small></div><div class="num-input-wrap"><input id="r-oy" type="number" value="0.0" step="0.1"><span class="num-unit">in</span></div></div>
+        <div class="section-label">Mecanismos</div>
+        <div class="toggle-row"><span class="toggle-label">Expulsión <small>mismo lado que entra</small></span><label class="toggle"><input id="r-sameEject" type="checkbox"><div class="toggle-track"><div class="toggle-thumb"></div></div></label></div>
+        <div class="toggle-row"><span class="toggle-label">Tiene almacenamiento</span><label class="toggle"><input id="r-storage" type="checkbox" data-cap="storage"><div class="toggle-track"><div class="toggle-thumb"></div></div></label></div>
+        <div class="toggle-row"><span class="toggle-label">Tiene retención</span><label class="toggle"><input id="r-retention" type="checkbox" data-cap="retention"><div class="toggle-track"><div class="toggle-thumb"></div></div></label></div>
+        <div class="section-label">Intake</div>
+        <div class="toggle-row"><span class="toggle-label">Lower center goal</span><label class="toggle"><input id="r-lowerGoal" type="checkbox" data-cap="lowerGoal"><div class="toggle-track"><div class="toggle-thumb"></div></div></label></div>
+        <div class="toggle-row"><span class="toggle-label">Upper center goal</span><label class="toggle"><input id="r-upperGoal" type="checkbox" data-cap="upperGoal"><div class="toggle-track"><div class="toggle-thumb"></div></div></label></div>
+        <div class="toggle-row"><span class="toggle-label">Long goals</span><label class="toggle"><input id="r-longGoal" type="checkbox" data-cap="longGoal"><div class="toggle-track"><div class="toggle-thumb"></div></div></label></div>
+        <div class="section-label">Bloques</div>
+        <div class="field-row"><div class="field-label">Máximo de bloques</div><div class="num-input-wrap"><input id="r-maxBlocks" type="number" value="3" step="1" min="0"><span class="num-unit">uds</span></div></div>
+        <div class="toggle-row"><span class="toggle-label">Permite recarga</span><label class="toggle"><input id="r-reload" type="checkbox" data-cap="reload"><div class="toggle-track"><div class="toggle-thumb"></div></div></label></div>
+        <div class="toggle-row"><span class="toggle-label">Color sorting</span><label class="toggle"><input id="r-colorSort" type="checkbox" data-cap="colorSort"><div class="toggle-track"><div class="toggle-thumb"></div></div></label></div>
+        <div class="section-label">Drivetrain</div>
+        <div class="field-row"><div class="field-label">RPM de la base</div><div class="num-input-wrap"><input id="r-rpm" type="number" value="600" step="1" min="0"><span class="num-unit">rpm</span></div></div>
+        <div class="field-row"><div class="field-label">Velocidad <small>rev / segundo</small></div><div class="num-input-wrap"><input id="r-rps" type="number" value="10" step="1" min="0"><span class="num-unit">r/s</span></div></div>
+        <div class="field-row"><div class="field-label">Diámetro rueda</div><div class="num-input-wrap"><input id="r-wheel" type="number" value="4.0" step="0.125" min="0"><span class="num-unit">in</span></div></div>
+      </div>
+    </div>
+
+    <!-- ══ CÓDIGO ══ -->
+    <div class="tab-pane" id="tab-codigo">
+      <div class="code-section">
+        <div class="code-hint">
+          Usa <b>{nombre}</b> para insertar variables. Ej: <b>chassis.move({x}, {y})</b>
+        </div>
+        <div class="code-scroll">
+          <div class="cs-label std">Bloques estándar</div>
+          <div id="template-list"></div>
+
+          <div class="cs-label custom" style="margin-top:14px;">Bloques personalizados</div>
+          <div id="custom-list"></div>
+          <button class="add-custom-btn" id="btn-add-custom">＋ Nuevo bloque</button>
+
+          <!-- New block inline form -->
+          <div class="new-block-form" id="new-block-form">
+            <div class="cc-field">
+              <span class="cc-field-label">Nombre del bloque</span>
+              <input class="cc-input" id="nbf-name" type="text" placeholder="MiAccion...">
+            </div>
+            <div class="cc-field">
+              <div class="args-label">
+                Argumentos
+                <button class="args-add-btn" id="nbf-add-arg">+ arg</button>
+              </div>
+              <div class="args-list" id="nbf-args-list"></div>
+            </div>
+            <div class="cc-field">
+              <span class="cc-field-label">Plantilla de código</span>
+              <input class="cc-tmpl-input" id="nbf-template" type="text" placeholder="miFunc({arg1}, {arg2})">
+            </div>
+            <div class="nbf-row">
+              <button class="nbf-btn ok" id="nbf-confirm">Crear</button>
+              <button class="nbf-btn cancel" id="nbf-cancel">Cancelar</button>
+            </div>
+          </div>
+
+        </div><!-- /code-scroll -->
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+</div><!-- /workspace -->
 
 <script>
-  /* ── Constantes ── */
-  const FIELD_IN = 144;
-  const TILE_IN  = 24;
-  const SCALE    = 4;
-  const SIZE_PX  = FIELD_IN * SCALE;
-  const COLS     = 'ABCDEF';
+/* ════════════════════════════════════════════
+   CANVAS
+════════════════════════════════════════════ */
+const FIELD_IN=144,TILE_IN=24,SCALE=4,SIZE_PX=FIELD_IN*SCALE,COLS='ABCDEF';
+const canvas=document.getElementById('field'),ctx=canvas.getContext('2d');
+const zoomEl=document.getElementById('zoomVal'),cursorEl=document.getElementById('cursorPos');
+let zoom=1,panX=0,panY=0;
+const ZOOM_MIN=1,ZOOM_MAX=10,ZOOM_STEP=0.12;
+let snapVertex=null;
+const TOOLTIP_DELAY=900,ANIM_DUR=260;
+let hoverTimer=null,tooltipVisible=false,animStart=null,animProgress=0,rafId=null;
+const fieldImg=new Image();fieldImg.onload=()=>render();fieldImg.onerror=()=>render();fieldImg.src='TOP.png';
+const easeOutExpo=t=>t>=1?1:1-Math.pow(2,-10*t);
+const fmt=v=>v.toFixed(1).replace('.',',');
 
-  const canvas   = document.getElementById('field');
-  const ctx      = canvas.getContext('2d');
-  const zoomEl   = document.getElementById('zoomVal');
-  const cursorEl = document.getElementById('cursorPos');
+function startTooltipAnim(){tooltipVisible=true;animStart=null;animProgress=0;if(rafId)cancelAnimationFrame(rafId);rafId=requestAnimationFrame(function loop(ts){if(!animStart)animStart=ts;animProgress=Math.min(1,(ts-animStart)/ANIM_DUR);render();if(animProgress<1)rafId=requestAnimationFrame(loop);else rafId=null;});}
+function stopTooltip(){tooltipVisible=false;animProgress=0;animStart=null;if(rafId){cancelAnimationFrame(rafId);rafId=null;}if(hoverTimer){clearTimeout(hoverTimer);hoverTimer=null;}}
 
-  /* ── Zoom / pan ── */
-  let zoom = 1, panX = 0, panY = 0;
-  const ZOOM_MIN = 1, ZOOM_MAX = 10, ZOOM_STEP = 0.12;
+function render(){
+  ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,SIZE_PX,SIZE_PX);ctx.restore();
+  ctx.save();ctx.translate(panX,panY);ctx.scale(zoom,zoom);
+  if(fieldImg.complete&&fieldImg.naturalWidth>0)ctx.drawImage(fieldImg,0,0,SIZE_PX,SIZE_PX);
+  else{ctx.fillStyle='#0d1a10';ctx.fillRect(0,0,SIZE_PX,SIZE_PX);}
+  ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=0.5/zoom;
+  for(let i=1;i<FIELD_IN;i++){if(i%TILE_IN===0)continue;const p=i*SCALE;ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,SIZE_PX);ctx.stroke();ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(SIZE_PX,p);ctx.stroke();}
+  const dotR=Math.max(0.5,0.75/zoom);ctx.fillStyle='rgba(255,255,255,.18)';
+  for(let x=0;x<=FIELD_IN;x++)for(let y=0;y<=FIELD_IN;y++){if(x%TILE_IN===0&&y%TILE_IN===0)continue;ctx.fillRect(x*SCALE-dotR,y*SCALE-dotR,dotR*2,dotR*2);}
+  ctx.strokeStyle='rgba(0,212,255,.35)';ctx.lineWidth=1.2/zoom;
+  for(let i=0;i<=FIELD_IN;i+=TILE_IN){const p=i*SCALE;ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,SIZE_PX);ctx.stroke();ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(SIZE_PX,p);ctx.stroke();}
+  ctx.fillStyle='rgba(0,212,255,.7)';
+  for(let x=0;x<=FIELD_IN;x+=TILE_IN)for(let y=0;y<=FIELD_IN;y+=TILE_IN){ctx.beginPath();ctx.arc(x*SCALE,y*SCALE,3/zoom,0,Math.PI*2);ctx.fill();}
+  const fs=Math.max(6,10/zoom);ctx.font=`${fs}px "Share Tech Mono",monospace`;ctx.fillStyle='rgba(0,212,255,.35)';ctx.textAlign='left';
+  for(let c=0;c<6;c++)for(let r=0;r<6;r++)ctx.fillText(COLS[c]+(r+1),c*TILE_IN*SCALE+5/zoom,r*TILE_IN*SCALE+14/zoom);
+  ctx.restore();if(snapVertex)drawOverlay();
+}
 
-  /* ── Snap ── */
-  let snapVertex = null;   // { ix, iy } enteros en pulgadas
+function drawOverlay(){
+  const{ix,iy}=snapVertex,sx=panX+ix*SCALE*zoom,sy=panY+iy*SCALE*zoom;
+  ctx.save();ctx.strokeStyle='rgba(255,77,77,.9)';ctx.lineWidth=1.8;ctx.shadowColor='rgba(255,77,77,.4)';ctx.shadowBlur=7;ctx.beginPath();ctx.arc(sx,sy,7,0,Math.PI*2);ctx.stroke();ctx.restore();
+  if(!tooltipVisible||animProgress<=0)return;
+  const t=easeOutExpo(animProgress),alpha=t,slide=(1-t)*8;
+  const colIdx=Math.min(5,Math.floor(ix/TILE_IN)),rowIdx=Math.min(5,Math.floor(iy/TILE_IN));
+  const tile=COLS[colIdx]+(rowIdx+1),relX=ix-colIdx*TILE_IN,relY=iy-rowIdx*TILE_IN;
+  const line1=`${fmt(ix)}, ${fmt(iy)} in`,line2=`${tile}  ·  ${fmt(relX)}, ${fmt(relY)} in`;
+  const F1='500 12px "Roboto Mono",monospace',F2='400 10px "Roboto Mono",monospace';
+  ctx.font=F1;const w1=ctx.measureText(line1).width;ctx.font=F2;const w2=ctx.measureText(line2).width;
+  const padX=13,padY=9,gap=5,h1=13,h2=11,bw=Math.max(w1,w2)+padX*2,bh=padY*2+h1+gap+h2,rr=4;
+  let tx=sx+12,ty=sy-bh-12;if(tx+bw>SIZE_PX-6)tx=sx-bw-12;if(ty<4)ty=sy+14;if(ty+bh>SIZE_PX-6)ty=SIZE_PX-bh-6;ty+=slide;
+  ctx.save();ctx.globalAlpha=alpha;ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=20;ctx.shadowOffsetY=6;
+  ctx.fillStyle='#111827';rRect(ctx,tx,ty,bw,bh,rr);ctx.fill();
+  ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.fillStyle='#ff4d4d';rRect(ctx,tx,ty+7,3,bh-14,1.5);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(tx+padX+6,ty+padY+h1+gap*.5);ctx.lineTo(tx+bw-padX,ty+padY+h1+gap*.5);ctx.stroke();
+  ctx.font=F1;ctx.fillStyle='rgba(225,235,255,.93)';ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText(line1,tx+padX+6,ty+padY);
+  ctx.font=F2;ctx.fillStyle='rgba(0,212,255,.6)';ctx.fillText(line2,tx+padX+6,ty+padY+h1+gap);ctx.restore();
+}
+function rRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
 
-  /* ── Tooltip animation ── */
-  const TOOLTIP_DELAY = 900;   // ms quieto antes de mostrar
-  const ANIM_IN_DUR   = 260;   // ms fade-in + slide
-  let hoverTimer     = null;
-  let tooltipVisible = false;
-  let animStart      = null;
-  let animProgress   = 0;      // 0 → 1
-  let rafId          = null;
+canvas.addEventListener('wheel',e=>{e.preventDefault();const rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;const nz=Math.min(ZOOM_MAX,Math.max(ZOOM_MIN,zoom*(1+(e.deltaY<0?1:-1)*ZOOM_STEP)));panX=mx-(mx-panX)*(nz/zoom);panY=my-(my-panY)*(nz/zoom);zoom=nz;clampPan();zoomEl.textContent=zoom.toFixed(2)+'×';render();},{passive:false});
+let dragging=false,lmx=0,lmy=0;
+canvas.addEventListener('mousedown',e=>{dragging=true;lmx=e.clientX;lmy=e.clientY;canvas.classList.add('grabbing');stopTooltip();});
+window.addEventListener('mousemove',e=>{if(!dragging)return;panX+=e.clientX-lmx;panY+=e.clientY-lmy;lmx=e.clientX;lmy=e.clientY;clampPan();render();});
+window.addEventListener('mouseup',()=>{dragging=false;canvas.classList.remove('grabbing');});
+function clampPan(){const fs=SIZE_PX*zoom;panX=Math.min(0,Math.max(SIZE_PX-fs,panX));panY=Math.min(0,Math.max(SIZE_PX-fs,panY));}
+canvas.addEventListener('mousemove',e=>{if(dragging)return;const rect=canvas.getBoundingClientRect();const inX=((e.clientX-rect.left)-panX)/zoom/SCALE,inY=((e.clientY-rect.top)-panY)/zoom/SCALE;cursorEl.textContent=`(${inX.toFixed(1)}in, ${inY.toFixed(1)}in) / (${(inX/12).toFixed(2)}ft, ${(inY/12).toFixed(2)}ft)`;const cIX=Math.max(0,Math.min(FIELD_IN,Math.round(inX))),cIY=Math.max(0,Math.min(FIELD_IN,Math.round(inY)));if(!snapVertex||snapVertex.ix!==cIX||snapVertex.iy!==cIY){snapVertex={ix:cIX,iy:cIY};stopTooltip();render();hoverTimer=setTimeout(startTooltipAnim,TOOLTIP_DELAY);}});
+canvas.addEventListener('mouseleave',()=>{if(dragging)return;snapVertex=null;stopTooltip();cursorEl.textContent='—';render();});
+['rulerX','rulerY'].forEach(id=>{const el=document.getElementById(id);for(let i=0;i<=12;i++){const d=document.createElement('div');d.textContent=(i===0||i===12)?i+'ft':i;el.appendChild(d);}});
 
-  /* ── Imagen de fondo ── */
-  const fieldImg = new Image();
-  fieldImg.onload  = () => render();
-  fieldImg.onerror = () => render();
-  fieldImg.src = 'TOP.png';
+/* ════════════════════════════════════════════
+   BLOCK DEFINITIONS
+════════════════════════════════════════════ */
+const CAT_COLOR={move:'#00d4ff',mech:'#ff9f43',goal:'#00c97d',store:'#a29bfe',clr:'#fdcb6e',custom:'#fd79a8'};
 
-  /* ── Easing ── */
-  const easeOutExpo = t => t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+const BLOCK_DEFS=[
+  {id:'wait',    cat:'move', label:'Esperar',                  req:null,       args:[{id:'ms',   label:'ms',  opt:false, def:500}]},
+  {id:'advance', cat:'move', label:'Avance',                   req:null,       args:[{id:'x',label:'X',opt:false,def:0},{id:'y',label:'Y',opt:false,def:24},{id:'minV',label:'minVelocity',opt:true,def:0},{id:'maxV',label:'maxVelocity',opt:true,def:127}]},
+  {id:'turn',    cat:'move', label:'Girar',                    req:null,       args:[{id:'theta',label:'Theta',opt:false,def:90},{id:'minV',label:'minVelocity',opt:true,def:0},{id:'maxV',label:'maxVelocity',opt:true,def:127}]},
+  {id:'lookat',  cat:'move', label:'MirarAPunto',              req:null,       args:[{id:'x',label:'X',opt:false,def:0},{id:'y',label:'Y',opt:false,def:0},{id:'minV',label:'minVelocity',opt:true,def:0},{id:'maxV',label:'maxVelocity',opt:true,def:127}]},
+  {id:'brake',   cat:'move', label:'Frenar',                   req:null,       args:[]},
+  {id:'intake',  cat:'mech', label:'AbsorberBloques',          req:null,       args:[]},
+  {id:'outtake', cat:'mech', label:'DevolverBloques',          req:null,       args:[]},
+  {id:'longG',   cat:'goal', label:'PuntuarLongGoal',          req:'longGoal', args:[]},
+  {id:'upperG',  cat:'goal', label:'PuntuarUpperCenterGoal',   req:'upperGoal',args:[]},
+  {id:'lowerG',  cat:'goal', label:'PuntuarLowerCenterGoal',   req:'lowerGoal',args:[]},
+  {id:'toStore', cat:'store',label:'RedirigirAAlmacenamiento', req:'storage',  args:[]},
+  {id:'toIntake',cat:'store',label:'RedirigirAIntake',         req:'storage',  args:[]},
+  {id:'retain',  cat:'store',label:'Retener',                  req:'retention',args:[]},
+  {id:'release', cat:'store',label:'Desbloquear',              req:'retention',args:[]},
+  {id:'reload',  cat:'store',label:'Recargar',                 req:'reload',   args:[]},
+  {id:'colorOn', cat:'clr',  label:'ActivarColorSorting',      req:'colorSort',args:[]},
+  {id:'colorOff',cat:'clr',  label:'DesactivarColorSorting',   req:'colorSort',args:[]},
+];
 
-  /* ── Formato con coma ── */
-  const fmt = v => v.toFixed(1).replace('.', ',');
+/* ════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════ */
+// codeTemplates[defId] = string
+let codeTemplates = {};
+// customDefs: [{uid, label, args:[{id,label,opt}], template}]
+let customDefs = [];
+let saveTimer = null;
 
-  /* ═══════════════════════════════════
-     ANIMATION LOOP (tooltip solamente)
-  ═══════════════════════════════════ */
-  function startTooltipAnim() {
-    tooltipVisible = true;
-    animStart      = null;
-    animProgress   = 0;
-    if (rafId) cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(function loop(ts) {
-      if (!animStart) animStart = ts;
-      animProgress = Math.min(1, (ts - animStart) / ANIM_IN_DUR);
-      render();
-      if (animProgress < 1) rafId = requestAnimationFrame(loop);
-      else rafId = null;
+/* ════════════════════════════════════════════
+   TEMPLATE ENGINE
+════════════════════════════════════════════ */
+function applyTemplate(tmpl, argsMap){
+  return tmpl.replace(/\{(\w+)\}/g, (_,k) => argsMap.hasOwnProperty(k) ? argsMap[k] : `{${k}}`);
+}
+
+function exampleArgs(args){
+  const m={};
+  args.forEach((a,i)=>{ m[a.id] = a.def !== undefined ? a.def : (i+1)*10; });
+  return m;
+}
+
+/* ════════════════════════════════════════════
+   RENDER: STANDARD TEMPLATES
+════════════════════════════════════════════ */
+function renderTemplates(){
+  const list=document.getElementById('template-list');
+  list.innerHTML='';
+  BLOCK_DEFS.forEach(def=>{
+    const color=CAT_COLOR[def.cat]||'#888';
+    const tmpl=codeTemplates[def.id]||'';
+    const argStr=def.args.length
+      ? '('+def.args.map(a=>(a.opt?'*':'')+a.id).join(', ')+')'
+      : '()';
+
+    const row=document.createElement('div');
+    row.className='tmpl-row';
+    row.style.borderLeftColor=color;
+
+    // Sig
+    const sig=document.createElement('div');
+    sig.className='tmpl-sig';
+    sig.innerHTML=`<span class="t-dot" style="background:${color}"></span><span class="t-name" style="color:${color}">${def.label}</span><span class="t-args">${argStr}</span>`;
+    row.appendChild(sig);
+
+    // Input
+    const inp=document.createElement('input');
+    inp.type='text';inp.spellcheck=false;
+    inp.className='tmpl-input'+(tmpl?' filled':'');
+    inp.value=tmpl;
+    inp.placeholder='// sin plantilla';
+
+    const prev=document.createElement('div');
+    prev.className='tmpl-preview';
+    refreshPreview(prev, def.args, tmpl);
+
+    inp.addEventListener('input',()=>{
+      codeTemplates[def.id]=inp.value;
+      inp.classList.toggle('filled',!!inp.value);
+      refreshPreview(prev, def.args, inp.value);
+      scheduleSave();
     });
-  }
 
-  function stopTooltip() {
-    tooltipVisible = false;
-    animProgress   = 0;
-    animStart      = null;
-    if (rafId)      { cancelAnimationFrame(rafId); rafId = null; }
-    if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
-  }
-
-  /* ═══════════════════════════════════
-     RENDER PRINCIPAL
-  ═══════════════════════════════════ */
-  function render() {
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, SIZE_PX, SIZE_PX);
-    ctx.restore();
-
-    ctx.save();
-    ctx.translate(panX, panY);
-    ctx.scale(zoom, zoom);
-
-    /* ① Fondo / imagen */
-    if (fieldImg.complete && fieldImg.naturalWidth > 0) {
-      ctx.drawImage(fieldImg, 0, 0, SIZE_PX, SIZE_PX);
-    } else {
-      ctx.fillStyle = '#0d1a10';
-      ctx.fillRect(0, 0, SIZE_PX, SIZE_PX);
-    }
-
-    /* ② Grid de pulgadas */
-    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
-    ctx.lineWidth   = 0.5 / zoom;
-    for (let i = 1; i < FIELD_IN; i++) {
-      if (i % TILE_IN === 0) continue;
-      const p = i * SCALE;
-      ctx.beginPath(); ctx.moveTo(p, 0);     ctx.lineTo(p, SIZE_PX); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, p);     ctx.lineTo(SIZE_PX, p); ctx.stroke();
-    }
-
-    /* ③ Vértices de pulgadas */
-    const dotR = Math.max(0.5, 0.75 / zoom);
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    for (let x = 0; x <= FIELD_IN; x++) {
-      for (let y = 0; y <= FIELD_IN; y++) {
-        if (x % TILE_IN === 0 && y % TILE_IN === 0) continue;
-        ctx.fillRect(x * SCALE - dotR, y * SCALE - dotR, dotR * 2, dotR * 2);
-      }
-    }
-
-    /* ④ Grid de tiles */
-    ctx.strokeStyle = 'rgba(0, 212, 255, 0.35)';
-    ctx.lineWidth   = 1.2 / zoom;
-    for (let i = 0; i <= FIELD_IN; i += TILE_IN) {
-      const p = i * SCALE;
-      ctx.beginPath(); ctx.moveTo(p, 0);     ctx.lineTo(p, SIZE_PX); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, p);     ctx.lineTo(SIZE_PX, p); ctx.stroke();
-    }
-
-    /* ⑤ Vértices de tiles */
-    ctx.fillStyle = 'rgba(0, 212, 255, 0.7)';
-    for (let x = 0; x <= FIELD_IN; x += TILE_IN) {
-      for (let y = 0; y <= FIELD_IN; y += TILE_IN) {
-        ctx.beginPath();
-        ctx.arc(x * SCALE, y * SCALE, 3 / zoom, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    /* ⑥ Etiquetas de tiles */
-    const fontSize = Math.max(6, 10 / zoom);
-    ctx.font      = `${fontSize}px "Share Tech Mono", monospace`;
-    ctx.fillStyle = 'rgba(0, 212, 255, 0.35)';
-    ctx.textAlign = 'left';
-    for (let c = 0; c < 6; c++) {
-      for (let r = 0; r < 6; r++) {
-        ctx.fillText(COLS[c] + (r + 1),
-          c * TILE_IN * SCALE + 5 / zoom,
-          r * TILE_IN * SCALE + 14 / zoom);
-      }
-    }
-
-    ctx.restore();
-
-    /* ⑦ Overlay (coordenadas de pantalla) */
-    if (snapVertex) drawOverlay();
-  }
-
-  /* ═══════════════════════════════════
-     OVERLAY — círculo + tooltip
-  ═══════════════════════════════════ */
-  function drawOverlay() {
-    const { ix, iy } = snapVertex;
-    const sx = panX + ix * SCALE * zoom;
-    const sy = panY + iy * SCALE * zoom;
-
-    /* — Círculo rojo simple — */
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255, 77, 77, 0.9)';
-    ctx.lineWidth   = 1.8;
-    ctx.shadowColor = 'rgba(255, 77, 77, 0.4)';
-    ctx.shadowBlur  = 7;
-    ctx.beginPath();
-    ctx.arc(sx, sy, 7, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-
-    /* — Tooltip — */
-    if (!tooltipVisible || animProgress <= 0) return;
-
-    const t     = easeOutExpo(animProgress);
-    const alpha = t;
-    const slide = (1 - t) * 8;   // baja 8px al aparecer, luego sube (entra desde abajo)
-
-    /* Datos */
-    const colIdx = Math.min(5, Math.floor(ix / TILE_IN));
-    const rowIdx = Math.min(5, Math.floor(iy / TILE_IN));
-    const tile   = COLS[colIdx] + (rowIdx + 1);
-    const relX   = ix - colIdx * TILE_IN;
-    const relY   = iy - rowIdx * TILE_IN;
-
-    const line1 = `${fmt(ix)}, ${fmt(iy)} in`;
-    const line2 = `${tile}  ·  ${fmt(relX)}, ${fmt(relY)} in`;
-
-    /* Medir textos */
-    const F1 = '500 12px "Roboto Mono", monospace';
-    const F2 = '400 10px "Roboto Mono", monospace';
-    ctx.font = F1; const w1 = ctx.measureText(line1).width;
-    ctx.font = F2; const w2 = ctx.measureText(line2).width;
-
-    const padX = 13, padY = 9, gap = 5;
-    const h1 = 13, h2 = 11;
-    const bw  = Math.max(w1, w2) + padX * 2;
-    const bh  = padY * 2 + h1 + gap + h2;
-    const rr  = 4;
-
-    /* Posición: arriba-derecha con rebote */
-    let tx = sx + 12;
-    let ty = sy - bh - 12;
-    if (tx + bw > SIZE_PX - 6) tx = sx - bw - 12;
-    if (ty < 4)               ty = sy + 14;
-    if (ty + bh > SIZE_PX - 6) ty = SIZE_PX - bh - 6;
-
-    ty += slide;
-
-    ctx.save();
-    ctx.globalAlpha = alpha;
-
-    /* Sombra elevada */
-    ctx.shadowColor   = 'rgba(0,0,0,0.6)';
-    ctx.shadowBlur    = 20;
-    ctx.shadowOffsetY = 6;
-
-    /* Fondo */
-    ctx.fillStyle = '#111827';   // gray-900 Material tone
-    rRect(ctx, tx, ty, bw, bh, rr);
-    ctx.fill();
-
-    /* Borde izquierdo (acento rojo, estilo Android) */
-    ctx.shadowBlur    = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.fillStyle     = '#ff4d4d';
-    rRect(ctx, tx, ty + 7, 3, bh - 14, 1.5);
-    ctx.fill();
-
-    /* Divisor interno */
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-    ctx.lineWidth   = 1;
-    const divY = ty + padY + h1 + gap * 0.5;
-    ctx.beginPath();
-    ctx.moveTo(tx + padX + 6, divY);
-    ctx.lineTo(tx + bw - padX, divY);
-    ctx.stroke();
-
-    /* Línea 1 — posición absoluta, blanco suave */
-    ctx.font         = F1;
-    ctx.fillStyle    = 'rgba(225, 235, 255, 0.93)';
-    ctx.textAlign    = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText(line1, tx + padX + 6, ty + padY);
-
-    /* Línea 2 — tile · relativo, cyan atenuado */
-    ctx.font      = F2;
-    ctx.fillStyle = 'rgba(0, 212, 255, 0.6)';
-    ctx.fillText(line2, tx + padX + 6, ty + padY + h1 + gap);
-
-    ctx.restore();
-  }
-
-  /* ── Rounded rect helper ── */
-  function rRect(c, x, y, w, h, r) {
-    c.beginPath();
-    c.moveTo(x + r, y);
-    c.lineTo(x + w - r, y);
-    c.arcTo(x + w, y, x + w, y + r, r);
-    c.lineTo(x + w, y + h - r);
-    c.arcTo(x + w, y + h, x + w - r, y + h, r);
-    c.lineTo(x + r, y + h);
-    c.arcTo(x, y + h, x, y + h - r, r);
-    c.lineTo(x, y + r);
-    c.arcTo(x, y, x + r, y, r);
-    c.closePath();
-  }
-
-  /* ═══════════════════════════════════
-     ZOOM
-  ═══════════════════════════════════ */
-  canvas.addEventListener('wheel', e => {
-    e.preventDefault();
-    const rect    = canvas.getBoundingClientRect();
-    const mouseX  = e.clientX - rect.left;
-    const mouseY  = e.clientY - rect.top;
-    const newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom * (1 + (e.deltaY < 0 ? 1 : -1) * ZOOM_STEP)));
-
-    panX = mouseX - (mouseX - panX) * (newZoom / zoom);
-    panY = mouseY - (mouseY - panY) * (newZoom / zoom);
-    zoom = newZoom;
-
-    clampPan();
-    zoomEl.textContent = zoom.toFixed(2) + '×';
-    render();
-  }, { passive: false });
-
-  /* ═══════════════════════════════════
-     PAN
-  ═══════════════════════════════════ */
-  let dragging = false, lastMouseX = 0, lastMouseY = 0;
-
-  canvas.addEventListener('mousedown', e => {
-    dragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY;
-    canvas.classList.add('grabbing');
-    stopTooltip();
+    row.appendChild(inp);
+    row.appendChild(prev);
+    list.appendChild(row);
   });
+}
 
-  window.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    panX += e.clientX - lastMouseX; panY += e.clientY - lastMouseY;
-    lastMouseX = e.clientX; lastMouseY = e.clientY;
-    clampPan(); render();
+function refreshPreview(el, args, tmpl){
+  if(!tmpl){el.textContent='';el.className='tmpl-preview';return;}
+  el.textContent='→ '+applyTemplate(tmpl, exampleArgs(args));
+  el.className='tmpl-preview ok';
+}
+
+/* ════════════════════════════════════════════
+   RENDER: CUSTOM BLOCKS
+════════════════════════════════════════════ */
+function renderCustomList(){
+  const list=document.getElementById('custom-list');
+  list.innerHTML='';
+  customDefs.forEach((cd,idx)=>{
+    const card=buildCustomCard(cd, idx);
+    list.appendChild(card);
   });
+}
 
-  window.addEventListener('mouseup', () => { dragging = false; canvas.classList.remove('grabbing'); });
+function buildCustomCard(cd, idx){
+  const card=document.createElement('div');
+  card.className='custom-card';
 
-  function clampPan() {
-    const fs = SIZE_PX * zoom;
-    panX = Math.min(0, Math.max(SIZE_PX - fs, panX));
-    panY = Math.min(0, Math.max(SIZE_PX - fs, panY));
-  }
+  // Header
+  const header=document.createElement('div');
+  header.className='custom-card-header';
+  const nameSpan=document.createElement('span');
+  nameSpan.className='custom-card-name';
+  nameSpan.textContent=cd.label+(cd.args.length ? '('+cd.args.map(a=>(a.opt?'*':'')+a.id).join(', ')+')' : '()');
+  const delBtn=document.createElement('button');
+  delBtn.className='custom-card-del';delBtn.textContent='×';
+  delBtn.addEventListener('click',()=>{customDefs.splice(idx,1);renderCustomList();scheduleSave();});
+  header.appendChild(nameSpan);header.appendChild(delBtn);
+  card.appendChild(header);
 
-  /* ═══════════════════════════════════
-     CURSOR + SNAP
-  ═══════════════════════════════════ */
-  canvas.addEventListener('mousemove', e => {
-    if (dragging) return;
+  // Body
+  const body=document.createElement('div');
+  body.className='custom-card-body';
 
-    const rect = canvas.getBoundingClientRect();
-    const inX  = ((e.clientX - rect.left) - panX) / zoom / SCALE;
-    const inY  = ((e.clientY - rect.top)  - panY) / zoom / SCALE;
+  // Name edit
+  const nameField=makeField('Nombre','cc-input',cd.label,'MiAccion...',v=>{cd.label=v;refreshCardHeader(header,cd);scheduleSave();});
+  body.appendChild(nameField);
 
-    cursorEl.textContent = `(${inX.toFixed(1)}in, ${inY.toFixed(1)}in) / (${(inX/12).toFixed(2)}ft, ${(inY/12).toFixed(2)}ft)`;
+  // Args editor
+  const argsWrap=document.createElement('div');argsWrap.className='cc-field';
+  const argsHeader=document.createElement('div');argsHeader.className='args-label';
+  argsHeader.innerHTML='Argumentos';
+  const addArgBtn=document.createElement('button');addArgBtn.className='args-add-btn';addArgBtn.textContent='+ arg';
+  addArgBtn.addEventListener('click',()=>{cd.args.push({id:'arg'+cd.args.length,label:'arg'+cd.args.length,opt:false});renderArgRows(argList,cd,header);scheduleSave();});
+  argsHeader.appendChild(addArgBtn);
+  const argList=document.createElement('div');argList.className='args-list';
+  renderArgRows(argList,cd,header);
+  argsWrap.appendChild(argsHeader);argsWrap.appendChild(argList);
+  body.appendChild(argsWrap);
 
-    const cIX = Math.max(0, Math.min(FIELD_IN, Math.round(inX)));
-    const cIY = Math.max(0, Math.min(FIELD_IN, Math.round(inY)));
+  // Template
+  const tmplWrap=document.createElement('div');tmplWrap.className='cc-field';
+  const tmplLabel=document.createElement('span');tmplLabel.className='cc-field-label';tmplLabel.textContent='Plantilla';
+  const tmplInp=document.createElement('input');
+  tmplInp.type='text';tmplInp.spellcheck=false;
+  tmplInp.className='cc-tmpl-input'+(cd.template?' filled':'');
+  tmplInp.value=cd.template||'';
+  tmplInp.placeholder='miFunc({arg1})';
 
-    if (!snapVertex || snapVertex.ix !== cIX || snapVertex.iy !== cIY) {
-      snapVertex = { ix: cIX, iy: cIY };
-      stopTooltip();
-      render();
-      hoverTimer = setTimeout(startTooltipAnim, TOOLTIP_DELAY);
-    }
+  const prev=document.createElement('div');prev.className='cc-preview';
+  refreshPreview(prev, cd.args, cd.template||'');
+
+  tmplInp.addEventListener('input',()=>{
+    cd.template=tmplInp.value;
+    tmplInp.classList.toggle('filled',!!tmplInp.value);
+    refreshPreview(prev,cd.args,tmplInp.value);
+    scheduleSave();
   });
+  tmplWrap.appendChild(tmplLabel);tmplWrap.appendChild(tmplInp);tmplWrap.appendChild(prev);
+  body.appendChild(tmplWrap);
 
-  canvas.addEventListener('mouseleave', () => {
-    if (dragging) return;
-    snapVertex = null;
-    stopTooltip();
-    cursorEl.textContent = '—';
-    render();
+  card.appendChild(body);
+  return card;
+}
+
+function refreshCardHeader(header, cd){
+  const nameSpan=header.querySelector('.custom-card-name');
+  nameSpan.textContent=cd.label+(cd.args.length?'('+cd.args.map(a=>(a.opt?'*':'')+a.id).join(', ')+')':'()');
+}
+
+function renderArgRows(container, cd, header){
+  container.innerHTML='';
+  cd.args.forEach((arg,i)=>{
+    const row=document.createElement('div');row.className='arg-row';
+
+    const idInp=document.createElement('input');idInp.type='text';idInp.placeholder='id';idInp.value=arg.id;idInp.title='Nombre/ID del argumento (usado en plantilla como {id})';
+    idInp.addEventListener('input',()=>{arg.id=idInp.value.replace(/\s/g,'');refreshCardHeader(header,cd);scheduleSave();});
+
+    const optLabel=document.createElement('label');optLabel.className='arg-opt-label';
+    const optCb=document.createElement('input');optCb.type='checkbox';optCb.checked=arg.opt;
+    optCb.addEventListener('change',()=>{arg.opt=optCb.checked;refreshCardHeader(header,cd);scheduleSave();});
+    optLabel.appendChild(optCb);optLabel.append('opt');
+
+    const delBtn=document.createElement('button');delBtn.className='arg-del-btn';delBtn.textContent='×';
+    delBtn.addEventListener('click',()=>{cd.args.splice(i,1);renderArgRows(container,cd,header);refreshCardHeader(header,cd);scheduleSave();});
+
+    row.appendChild(idInp);row.appendChild(optLabel);row.appendChild(delBtn);
+    container.appendChild(row);
   });
+}
 
-  /* ── Rulers ── */
-  ['rulerX', 'rulerY'].forEach(id => {
-    const el = document.getElementById(id);
-    for (let i = 0; i <= 12; i++) {
-      const d = document.createElement('div');
-      d.textContent = (i === 0 || i === 12) ? i + 'ft' : i;
-      el.appendChild(d);
-    }
+function makeField(labelText, inputClass, value, placeholder, onChange){
+  const wrap=document.createElement('div');wrap.className='cc-field';
+  const lbl=document.createElement('span');lbl.className='cc-field-label';lbl.textContent=labelText;
+  const inp=document.createElement('input');inp.type='text';inp.className=inputClass;inp.value=value;inp.placeholder=placeholder;
+  inp.addEventListener('input',()=>onChange(inp.value));
+  wrap.appendChild(lbl);wrap.appendChild(inp);
+  return wrap;
+}
+
+/* ════════════════════════════════════════════
+   NEW BLOCK FORM
+════════════════════════════════════════════ */
+let nbfTempArgs = [];   // args being built in the form
+
+function openNewBlockForm(){
+  nbfTempArgs=[];
+  document.getElementById('nbf-name').value='';
+  document.getElementById('nbf-template').value='';
+  document.getElementById('nbf-args-list').innerHTML='';
+  document.getElementById('new-block-form').classList.add('open');
+  document.getElementById('nbf-name').focus();
+}
+function closeNewBlockForm(){
+  document.getElementById('new-block-form').classList.remove('open');
+}
+
+document.getElementById('btn-add-custom').addEventListener('click',openNewBlockForm);
+document.getElementById('nbf-cancel').addEventListener('click',closeNewBlockForm);
+
+document.getElementById('nbf-add-arg').addEventListener('click',()=>{
+  nbfTempArgs.push({id:'arg'+nbfTempArgs.length,opt:false});
+  renderNbfArgRows();
+});
+
+function renderNbfArgRows(){
+  const container=document.getElementById('nbf-args-list');
+  container.innerHTML='';
+  nbfTempArgs.forEach((arg,i)=>{
+    const row=document.createElement('div');row.className='arg-row';
+    const idInp=document.createElement('input');idInp.type='text';idInp.placeholder='id del arg';idInp.value=arg.id;
+    idInp.addEventListener('input',()=>{arg.id=idInp.value.replace(/\s/g,'');});
+    const optLabel=document.createElement('label');optLabel.className='arg-opt-label';
+    const optCb=document.createElement('input');optCb.type='checkbox';optCb.checked=arg.opt;
+    optCb.addEventListener('change',()=>{arg.opt=optCb.checked;});
+    optLabel.appendChild(optCb);optLabel.append('opt');
+    const delBtn=document.createElement('button');delBtn.className='arg-del-btn';delBtn.textContent='×';
+    delBtn.addEventListener('click',()=>{nbfTempArgs.splice(i,1);renderNbfArgRows();});
+    row.appendChild(idInp);row.appendChild(optLabel);row.appendChild(delBtn);
+    container.appendChild(row);
   });
+}
 
-  render();
+document.getElementById('nbf-confirm').addEventListener('click',()=>{
+  const name=document.getElementById('nbf-name').value.trim();
+  if(!name)return;
+  const tmpl=document.getElementById('nbf-template').value.trim();
+  customDefs.push({uid:String(Date.now()),label:name,args:nbfTempArgs.map(a=>({...a})),template:tmpl});
+  closeNewBlockForm();
+  renderCustomList();
+  scheduleSave();
+});
+document.getElementById('nbf-name').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('nbf-confirm').click();if(e.key==='Escape')closeNewBlockForm();});
+
+/* ════════════════════════════════════════════
+   COOKIES
+════════════════════════════════════════════ */
+function setCookie(n,v){try{document.cookie=`${n}=${encodeURIComponent(v)};max-age=${365*86400};path=/`;}catch(e){}}
+function getCookie(n){const m=document.cookie.match('(^|;)\\s*'+n+'\\s*=\\s*([^;]+)');return m?decodeURIComponent(m[2]):null;}
+function scheduleSave(){if(saveTimer)clearTimeout(saveTimer);saveTimer=setTimeout(saveAll,500);}
+function saveAll(){
+  const rData={};document.querySelectorAll('#tab-robot input').forEach(el=>{rData[el.id]=el.type==='checkbox'?el.checked:el.value;});
+  setCookie('df_robot',JSON.stringify(rData));
+  setCookie('df_templates',JSON.stringify(codeTemplates));
+  setCookie('df_custom2',JSON.stringify(customDefs));
+}
+function loadAll(){
+  const rRaw=getCookie('df_robot');
+  if(rRaw){try{const d=JSON.parse(rRaw);Object.entries(d).forEach(([id,val])=>{const el=document.getElementById(id);if(!el)return;if(el.type==='checkbox')el.checked=val;else el.value=val;});}catch(e){}}
+  const tRaw=getCookie('df_templates');if(tRaw){try{codeTemplates=JSON.parse(tRaw);}catch(e){}}
+  const cRaw=getCookie('df_custom2');if(cRaw){try{customDefs=JSON.parse(cRaw);}catch(e){}}
+}
+
+/* ════════════════════════════════════════════
+   TABS
+════════════════════════════════════════════ */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab==='codigo'){renderTemplates();renderCustomList();}
+  });
+});
+
+document.querySelectorAll('#tab-robot input').forEach(el=>{el.addEventListener('change',scheduleSave);});
+
+/* ════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════ */
+loadAll();
+render();
 </script>
 </body>
 </html>
