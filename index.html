@@ -48,7 +48,10 @@
     .field-wrapper{position:relative;border:2px solid var(--accent2);box-shadow:0 0 0 1px var(--border),0 0 32px rgba(255,77,77,.15);overflow:hidden;}
     canvas{display:block;cursor:crosshair;}
     canvas.grabbing{cursor:grabbing;}
-    .info-bar{margin-top:14px;font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted);letter-spacing:1px;display:flex;gap:32px;}
+    .info-bar{margin-top:14px;font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted);letter-spacing:1px;display:flex;gap:0;width:576px;overflow:hidden;}
+    .info-bar>div{white-space:nowrap;padding-right:20px;flex-shrink:0;}
+    .info-bar>div.cursor-cell{flex:1;min-width:0;padding-right:0;overflow:hidden;}
+    .info-bar>div.cursor-cell span{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;}
     .info-bar span{color:var(--accent);}
 
     /* ════ PANEL ════ */
@@ -223,6 +226,65 @@
     .code-scroll{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;}
     .code-scroll::-webkit-scrollbar{width:3px;}
     .code-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+    /* ════ CONTEXT MENU ════ */
+    .ctx-menu {
+      position: fixed;
+      z-index: 200;
+      background: #0f1925;
+      border: 1px solid var(--border2);
+      border-top: 2px solid var(--accent);
+      border-radius: 0 4px 4px 4px;
+      min-width: 200px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.7);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      animation: ctxIn .12s cubic-bezier(.2,0,.2,1);
+    }
+    .ctx-menu.open { display: flex; }
+    @keyframes ctxIn {
+      from { opacity:0; transform:scale(.95) translateY(-4px); }
+      to   { opacity:1; transform:scale(1)   translateY(0);    }
+    }
+    .ctx-header {
+      padding: 5px 11px 4px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: .57rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,212,255,.05);
+      white-space: nowrap;
+    }
+    .ctx-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 12px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: .88rem;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      border: none;
+      background: none;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,.03);
+      transition: background .1s, color .1s;
+      width: 100%;
+    }
+    .ctx-item:last-child { border-bottom: none; }
+    .ctx-item:hover { background: rgba(0,212,255,.07); color: var(--accent); }
+    .ctx-item:hover .ctx-icon { color: var(--accent); }
+    .ctx-icon {
+      font-size: .8rem;
+      color: var(--muted2);
+      width: 14px;
+      text-align: center;
+      flex-shrink: 0;
+      transition: color .1s;
+    }
   </style>
 </head>
 <body>
@@ -252,7 +314,7 @@
       <div>CAMPO: <span>144 × 144 in</span></div>
       <div>TILES: <span>6 × 6</span></div>
       <div>ZOOM: <span id="zoomVal">1.00×</span></div>
-      <div>CURSOR: <span id="cursorPos">—</span></div>
+      <div class="cursor-cell">CURSOR: <span id="cursorPos">—</span></div>
     </div>
   </div>
 
@@ -338,6 +400,14 @@
 
   </div><!-- /panel -->
 </div><!-- /workspace -->
+
+<!-- Context menu -->
+<div class="ctx-menu" id="ctx-menu">
+  <div class="ctx-header" id="ctx-label">Vértice (0, 0)</div>
+  <button class="ctx-item" id="ctx-teleport">
+    <span class="ctx-icon">⊙</span> Teletransportar robot aquí
+  </button>
+</div>
 
 <script>
 /* ════════════════════════════════════════════
@@ -466,8 +536,41 @@ function drawOverlay(){
 function rRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
 
 canvas.addEventListener('wheel',e=>{e.preventDefault();const rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;const nz=Math.min(ZOOM_MAX,Math.max(ZOOM_MIN,zoom*(1+(e.deltaY<0?1:-1)*ZOOM_STEP)));panX=mx-(mx-panX)*(nz/zoom);panY=my-(my-panY)*(nz/zoom);zoom=nz;clampPan();zoomEl.textContent=zoom.toFixed(2)+'×';render();},{passive:false});
-let dragging=false,lmx=0,lmy=0,didDrag=false;
-canvas.addEventListener('mousedown',e=>{dragging=true;didDrag=false;lmx=e.clientX;lmy=e.clientY;canvas.classList.add('grabbing');stopTooltip();});
+let dragging=false,lmx=0,lmy=0,didDrag=false,mouseDownOnCanvas=false;
+let ctxVertex=null;  // vertex the context menu was opened for
+
+const ctxMenu   = document.getElementById('ctx-menu');
+const ctxLabel  = document.getElementById('ctx-label');
+
+function openCtxMenu(screenX, screenY, vx, vy){
+  ctxVertex = {x: vx, y: vy};
+  ctxLabel.textContent = `(${vx}, ${vy}) in`;
+  // Position menu; flip if near edge
+  const mw=210, mh=ctxMenu.scrollHeight||90;
+  const ww=window.innerWidth, wh=window.innerHeight;
+  let left=screenX, top=screenY;
+  if(left+mw>ww-8) left=screenX-mw;
+  if(top+mh>wh-8) top=screenY-mh;
+  ctxMenu.style.left=left+'px';
+  ctxMenu.style.top=top+'px';
+  ctxMenu.classList.add('open');
+}
+function closeCtxMenu(){ ctxMenu.classList.remove('open'); ctxVertex=null; }
+
+document.getElementById('ctx-teleport').addEventListener('click',()=>{
+  if(!ctxVertex) return;
+  robotPos.x=ctxVertex.x; robotPos.y=ctxVertex.y;
+  closeCtxMenu(); render();
+});
+
+// Close on click outside
+window.addEventListener('mousedown',e=>{
+  if(!ctxMenu.contains(e.target)) closeCtxMenu();
+});
+// Close on Escape
+window.addEventListener('keydown',e=>{ if(e.key==='Escape') closeCtxMenu(); });
+
+canvas.addEventListener('mousedown',e=>{dragging=true;didDrag=false;mouseDownOnCanvas=true;lmx=e.clientX;lmy=e.clientY;canvas.classList.add('grabbing');stopTooltip();closeCtxMenu();});
 window.addEventListener('mousemove',e=>{
   if(!dragging)return;
   const dx=e.clientX-lmx,dy=e.clientY-lmy;
@@ -476,21 +579,19 @@ window.addEventListener('mousemove',e=>{
 });
 window.addEventListener('mouseup',e=>{
   dragging=false;canvas.classList.remove('grabbing');
-  if(!didDrag){
-    // Treat as click — teleport robot to nearest vertex
+  if(!didDrag&&mouseDownOnCanvas){
     const rect=canvas.getBoundingClientRect();
-    const inX=((e.clientX-rect.left)-panX)/zoom/SCALE;
-    const inY=((e.clientY-rect.top) -panY)/zoom/SCALE;
-    const vx=Math.round(inX),vy=Math.round(inY);
-    // Only teleport if click is close enough to a vertex (within 14px screen)
-    const dsx=Math.abs((vx-inX)*SCALE*zoom),dsy=Math.abs((vy-inY)*SCALE*zoom);
-    if(dsx<=14&&dsy<=14){
-      robotPos.x=Math.max(0,Math.min(FIELD_IN,vx));
-      robotPos.y=Math.max(0,Math.min(FIELD_IN,vy));
-      render();
+    const cx=e.clientX-rect.left,cy=e.clientY-rect.top;
+    if(cx>=0&&cy>=0&&cx<=SIZE_PX&&cy<=SIZE_PX){
+      const inX=(cx-panX)/zoom/SCALE,inY=(cy-panY)/zoom/SCALE;
+      const vx=Math.round(inX),vy=Math.round(inY);
+      const dsx=Math.abs((vx-inX)*SCALE*zoom),dsy=Math.abs((vy-inY)*SCALE*zoom);
+      if(dsx<=14&&dsy<=14){
+        openCtxMenu(e.clientX, e.clientY, Math.max(0,Math.min(FIELD_IN,vx)), Math.max(0,Math.min(FIELD_IN,vy)));
+      }
     }
   }
-  didDrag=false;
+  didDrag=false;mouseDownOnCanvas=false;
 });
 function clampPan(){const fs=SIZE_PX*zoom;panX=Math.min(0,Math.max(SIZE_PX-fs,panX));panY=Math.min(0,Math.max(SIZE_PX-fs,panY));}
 canvas.addEventListener('mousemove',e=>{if(dragging)return;const rect=canvas.getBoundingClientRect();const inX=((e.clientX-rect.left)-panX)/zoom/SCALE,inY=((e.clientY-rect.top)-panY)/zoom/SCALE;cursorEl.textContent=`(${inX.toFixed(1)}in, ${inY.toFixed(1)}in) / (${(inX/12).toFixed(2)}ft, ${(inY/12).toFixed(2)}ft)`;const cIX=Math.max(0,Math.min(FIELD_IN,Math.round(inX))),cIY=Math.max(0,Math.min(FIELD_IN,Math.round(inY)));if(!snapVertex||snapVertex.ix!==cIX||snapVertex.iy!==cIY){snapVertex={ix:cIX,iy:cIY};stopTooltip();render();hoverTimer=setTimeout(startTooltipAnim,TOOLTIP_DELAY);}});
