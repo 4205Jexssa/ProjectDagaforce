@@ -349,6 +349,7 @@ const zoomEl=document.getElementById('zoomVal'),cursorEl=document.getElementById
 let zoom=1,panX=0,panY=0;
 const ZOOM_MIN=1,ZOOM_MAX=10,ZOOM_STEP=0.12;
 let snapVertex=null;
+let robotPos={x:0,y:0};   // field inches (float), this is the origin point
 const TOOLTIP_DELAY=900,ANIM_DUR=260;
 let hoverTimer=null,tooltipVisible=false,animStart=null,animProgress=0,rafId=null;
 const fieldImg=new Image();fieldImg.onload=()=>render();fieldImg.onerror=()=>render();fieldImg.src='TOP.png';
@@ -373,7 +374,74 @@ function render(){
   for(let x=0;x<=FIELD_IN;x+=TILE_IN)for(let y=0;y<=FIELD_IN;y+=TILE_IN){ctx.beginPath();ctx.arc(x*SCALE,y*SCALE,3/zoom,0,Math.PI*2);ctx.fill();}
   const fs=Math.max(6,10/zoom);ctx.font=`${fs}px "Share Tech Mono",monospace`;ctx.fillStyle='rgba(0,212,255,.35)';ctx.textAlign='left';
   for(let c=0;c<6;c++)for(let r=0;r<6;r++)ctx.fillText(COLS[c]+(r+1),c*TILE_IN*SCALE+5/zoom,r*TILE_IN*SCALE+14/zoom);
-  ctx.restore();if(snapVertex)drawOverlay();
+  ctx.restore();
+  drawRobot();
+  if(snapVertex)drawOverlay();
+}
+
+function getRobotDims(){
+  const largo  = parseFloat(document.getElementById('r-largo').value)  || 18;
+  const ancho  = parseFloat(document.getElementById('r-ancho').value)  || 18;
+  const ox     = parseFloat(document.getElementById('r-ox').value)     || 0;
+  const oy     = parseFloat(document.getElementById('r-oy').value)     || 0;
+  return {largo, ancho, ox, oy};
+}
+
+function fieldToScreen(ix, iy){
+  return { sx: panX + ix * SCALE * zoom, sy: panY + iy * SCALE * zoom };
+}
+
+function drawRobot(){
+  const {largo, ancho, ox, oy} = getRobotDims();
+  const {sx: originSX, sy: originSY} = fieldToScreen(robotPos.x, robotPos.y);
+
+  // Center of robot in screen coords
+  const centerSX = panX + (robotPos.x + ox) * SCALE * zoom;
+  const centerSY = panY + (robotPos.y + oy) * SCALE * zoom;
+
+  // Body rect in screen coords
+  const bw = largo * SCALE * zoom;
+  const bh = ancho * SCALE * zoom;
+  const bx = centerSX - bw / 2;
+  const by = centerSY - bh / 2;
+
+  ctx.save();
+
+  /* Purple transparent body */
+  ctx.fillStyle   = 'rgba(160, 100, 255, 0.18)';
+  ctx.strokeStyle = 'rgba(180, 120, 255, 0.7)';
+  ctx.lineWidth   = 1.5;
+  ctx.beginPath();
+  ctx.rect(bx, by, bw, bh);
+  ctx.fill();
+  ctx.stroke();
+
+  /* Corner ticks */
+  const tick = Math.min(10, bw * 0.12, bh * 0.12);
+  ctx.strokeStyle = 'rgba(200, 150, 255, 0.5)';
+  ctx.lineWidth   = 1;
+  [[bx, by], [bx+bw, by], [bx, by+bh], [bx+bw, by+bh]].forEach(([cx,cy],i)=>{
+    const dx = i%2===0 ? 1 : -1, dy = i<2 ? 1 : -1;
+    ctx.beginPath();ctx.moveTo(cx+dx*tick,cy);ctx.lineTo(cx,cy);ctx.lineTo(cx,cy+dy*tick);ctx.stroke();
+  });
+
+  /* Green origin point */
+  ctx.shadowColor  = 'rgba(0, 255, 120, 0.6)';
+  ctx.shadowBlur   = 8;
+  ctx.fillStyle    = '#00ff78';
+  ctx.beginPath();
+  ctx.arc(originSX, originSY, 5, 0, Math.PI*2);
+  ctx.fill();
+
+  /* Small cross at origin */
+  ctx.shadowBlur   = 0;
+  ctx.strokeStyle  = 'rgba(0, 255, 120, 0.6)';
+  ctx.lineWidth    = 1;
+  const c = 7;
+  ctx.beginPath();ctx.moveTo(originSX-c,originSY);ctx.lineTo(originSX+c,originSY);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(originSX,originSY-c);ctx.lineTo(originSX,originSY+c);ctx.stroke();
+
+  ctx.restore();
 }
 
 function drawOverlay(){
@@ -398,10 +466,32 @@ function drawOverlay(){
 function rRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
 
 canvas.addEventListener('wheel',e=>{e.preventDefault();const rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;const nz=Math.min(ZOOM_MAX,Math.max(ZOOM_MIN,zoom*(1+(e.deltaY<0?1:-1)*ZOOM_STEP)));panX=mx-(mx-panX)*(nz/zoom);panY=my-(my-panY)*(nz/zoom);zoom=nz;clampPan();zoomEl.textContent=zoom.toFixed(2)+'×';render();},{passive:false});
-let dragging=false,lmx=0,lmy=0;
-canvas.addEventListener('mousedown',e=>{dragging=true;lmx=e.clientX;lmy=e.clientY;canvas.classList.add('grabbing');stopTooltip();});
-window.addEventListener('mousemove',e=>{if(!dragging)return;panX+=e.clientX-lmx;panY+=e.clientY-lmy;lmx=e.clientX;lmy=e.clientY;clampPan();render();});
-window.addEventListener('mouseup',()=>{dragging=false;canvas.classList.remove('grabbing');});
+let dragging=false,lmx=0,lmy=0,didDrag=false;
+canvas.addEventListener('mousedown',e=>{dragging=true;didDrag=false;lmx=e.clientX;lmy=e.clientY;canvas.classList.add('grabbing');stopTooltip();});
+window.addEventListener('mousemove',e=>{
+  if(!dragging)return;
+  const dx=e.clientX-lmx,dy=e.clientY-lmy;
+  if(Math.abs(dx)>4||Math.abs(dy)>4)didDrag=true;
+  panX+=dx;panY+=dy;lmx=e.clientX;lmy=e.clientY;clampPan();render();
+});
+window.addEventListener('mouseup',e=>{
+  dragging=false;canvas.classList.remove('grabbing');
+  if(!didDrag){
+    // Treat as click — teleport robot to nearest vertex
+    const rect=canvas.getBoundingClientRect();
+    const inX=((e.clientX-rect.left)-panX)/zoom/SCALE;
+    const inY=((e.clientY-rect.top) -panY)/zoom/SCALE;
+    const vx=Math.round(inX),vy=Math.round(inY);
+    // Only teleport if click is close enough to a vertex (within 14px screen)
+    const dsx=Math.abs((vx-inX)*SCALE*zoom),dsy=Math.abs((vy-inY)*SCALE*zoom);
+    if(dsx<=14&&dsy<=14){
+      robotPos.x=Math.max(0,Math.min(FIELD_IN,vx));
+      robotPos.y=Math.max(0,Math.min(FIELD_IN,vy));
+      render();
+    }
+  }
+  didDrag=false;
+});
 function clampPan(){const fs=SIZE_PX*zoom;panX=Math.min(0,Math.max(SIZE_PX-fs,panX));panY=Math.min(0,Math.max(SIZE_PX-fs,panY));}
 canvas.addEventListener('mousemove',e=>{if(dragging)return;const rect=canvas.getBoundingClientRect();const inX=((e.clientX-rect.left)-panX)/zoom/SCALE,inY=((e.clientY-rect.top)-panY)/zoom/SCALE;cursorEl.textContent=`(${inX.toFixed(1)}in, ${inY.toFixed(1)}in) / (${(inX/12).toFixed(2)}ft, ${(inY/12).toFixed(2)}ft)`;const cIX=Math.max(0,Math.min(FIELD_IN,Math.round(inX))),cIY=Math.max(0,Math.min(FIELD_IN,Math.round(inY)));if(!snapVertex||snapVertex.ix!==cIX||snapVertex.iy!==cIY){snapVertex={ix:cIX,iy:cIY};stopTooltip();render();hoverTimer=setTimeout(startTooltipAnim,TOOLTIP_DELAY);}});
 canvas.addEventListener('mouseleave',()=>{if(dragging)return;snapVertex=null;stopTooltip();cursorEl.textContent='—';render();});
@@ -701,7 +791,10 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
   });
 });
 
-document.querySelectorAll('#tab-robot input').forEach(el=>{el.addEventListener('change',scheduleSave);});
+document.querySelectorAll('#tab-robot input').forEach(el=>{
+  el.addEventListener('change',scheduleSave);
+  el.addEventListener('input',()=>render());
+});
 
 /* ════════════════════════════════════════════
    INIT
