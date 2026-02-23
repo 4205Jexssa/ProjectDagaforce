@@ -28,11 +28,19 @@ function drawLoaders() {
     const top = loaderTopColor(loader);
     const img = top === 'red' ? imgLoaderRed : top === 'blue' ? imgLoaderBlue : imgLoaderEmpty;
 
-    ctx.save();
+    // Lado rojo = azulejos 1-3 = x < 72 in
+    const angle = (loader.x < 72) ? -Math.PI / 2 : Math.PI / 2;
+
+    // ── Draw image (rotated) ──
     if (img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, sx - wpx/2, sy - hpx/2, wpx, hpx);
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(angle);
+      ctx.drawImage(img, -hpx/2, -wpx/2, hpx, wpx);
+      ctx.restore();
     } else {
       // Fallback rect
+      ctx.save();
       ctx.fillStyle   = 'rgba(253,203,110,.15)';
       ctx.strokeStyle = top === 'red' ? '#ff7070' : top === 'blue' ? '#6fa8ff' : '#fdcb6e';
       ctx.lineWidth   = 1.5;
@@ -42,14 +50,16 @@ function drawLoaders() {
       ctx.font = `${Math.max(7, 9/zoom)}px "Share Tech Mono",monospace`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('LOADER', sx, sy);
+      ctx.restore();
     }
 
-    // Selection ring
+    // ── Selection ring (no rotation) ──
     if (editingLoader && editingLoader.uid === loader.uid) {
+      ctx.save();
       ctx.strokeStyle = 'rgba(253,203,110,.8)'; ctx.lineWidth = 2;
       ctx.strokeRect(sx-wpx/2-2, sy-hpx/2-2, wpx+4, hpx+4);
+      ctx.restore();
     }
-    ctx.restore();
 
     drawLoaderSlotBar(loader, sx, sy, wpx, hpx);
   });
