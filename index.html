@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Polirobots Dagaforce: Autons Maker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<header>
+  <h1>Dagaforce Tool</h1>
+  <span>By: DevMaxD</span>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch swatch-tile"></div>Línea de azulejo (2 ft)</div>
+  <div class="legend-item"><div class="legend-swatch swatch-inch"></div>Línea de pulgada (1 in)</div>
+  <div class="legend-item"><div class="legend-swatch swatch-border"></div>Borde del campo</div>
+</div>
+
+<div class="workspace">
+
+  <!-- ══════════════════ CAMPO ══════════════════ -->
+  <div class="field-col">
+    <div class="ruler-x" id="rulerX"></div>
+    <div class="ruler-y-wrapper">
+      <div class="ruler-y" id="rulerY"></div>
+      <div class="field-wrapper">
+        <div class="pick-banner" id="pick-banner">Haz clic en un vértice para fijar la posición</div>
+        <canvas id="field" width="576" height="576"></canvas>
+      </div>
+    </div>
+    <div class="info-bar">
+      <div>CAMPO: <span>144 × 144 in</span></div>
+      <div>TILES: <span>6 × 6</span></div>
+      <div>ZOOM: <span id="zoomVal">1.00×</span></div>
+      <div class="cursor-cell">CURSOR: <span id="cursorPos">—</span></div>
+      <button id="btn-reset-blocks" title="Restaurar posición por defecto de los bloques" style="
+        margin-left:auto;flex-shrink:0;background:none;
+        border:1px solid var(--border);border-radius:2px;
+        color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:.58rem;
+        letter-spacing:1px;padding:2px 8px;cursor:pointer;white-space:nowrap;
+        transition:color .15s,border-color .15s;">↺ reset</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════ PANEL ══════════════════ -->
+  <div class="robot-panel">
+    <div class="panel-header">
+      <div class="panel-header-dot"></div>
+      <span class="panel-title">Mi Robot</span>
+    </div>
+
+    <div class="panel-tabs">
+      <button class="tab-btn active" data-tab="robot">Robot</button>
+      <button class="tab-btn" data-tab="codigo">Código</button>
+    </div>
+
+    <!-- ══ TAB: ROBOT ══ -->
+    <div class="tab-pane active" id="tab-robot">
+      <div class="panel-body">
+
+        <div class="section-label">Dimensiones</div>
+        <div class="field-row">
+          <div class="field-label">Largo</div>
+          <div class="num-input-wrap"><input id="r-largo" type="number" value="18.0" step="0.1" min="0"><span class="num-unit">in</span></div>
+        </div>
+        <div class="field-row">
+          <div class="field-label">Ancho</div>
+          <div class="num-input-wrap"><input id="r-ancho" type="number" value="18.0" step="0.1" min="0"><span class="num-unit">in</span></div>
+        </div>
+
+        <div class="section-label">Punto de origen</div>
+        <div class="field-row">
+          <div class="field-label">Offset centro <small>eje X</small></div>
+          <div class="num-input-wrap"><input id="r-ox" type="number" value="0.0" step="0.1"><span class="num-unit">in</span></div>
+        </div>
+        <div class="field-row">
+          <div class="field-label">Offset centro <small>eje Y</small></div>
+          <div class="num-input-wrap"><input id="r-oy" type="number" value="0.0" step="0.1"><span class="num-unit">in</span></div>
+        </div>
+
+        <div class="section-label">Mecanismos</div>
+        <div class="toggle-row">
+          <span class="toggle-label">Expulsión <small>mismo lado que entra</small></span>
+          <label class="toggle"><input id="r-sameEject" type="checkbox"><div class="toggle-track"><div class="toggle-thumb"></div></div></label>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Tiene almacenamiento</span>
+          <label class="toggle"><input id="r-storage" type="checkbox" data-cap="storage"><div class="toggle-track"><div class="toggle-thumb"></div></div></label>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Tiene retención</span>
+          <label class="toggle"><input id="r-retention" type="checkbox" data-cap="retention"><div class="toggle-track"><div class="toggle-thumb"></div></div></label>
+        </div>
+
+        <div class="section-label">Intake</div>
+        <div class="toggle-row">
+          <span class="toggle-label">Lower center goal</span>
+          <label class="toggle"><input id="r-lowerGoal" type="checkbox" data-cap="lowerGoal"><div class="toggle-track"><div class="toggle-thumb"></div></div></label>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Upper center goal</span>
+          <label class="toggle"><input id="r-upperGoal" type="checkbox" data-cap="upperGoal"><div class="toggle-track"><div class="toggle-thumb"></div></div></label>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Long goals</span>
+          <label class="toggle"><input id="r-longGoal" type="checkbox" data-cap="longGoal"><div class="toggle-track"><div class="toggle-thumb"></div></div></label>
+        </div>
+
+        <div class="section-label">Bloques</div>
+        <div class="field-row">
+          <div class="field-label">Máximo de bloques</div>
+          <div class="num-input-wrap"><input id="r-maxBlocks" type="number" value="3" step="1" min="0"><span class="num-unit">uds</span></div>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Permite recarga</span>
+          <label class="toggle"><input id="r-reload" type="checkbox" data-cap="reload"><div class="toggle-track"><div class="toggle-thumb"></div></div></label>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Color sorting</span>
+          <label class="toggle"><input id="r-colorSort" type="checkbox" data-cap="colorSort"><div class="toggle-track"><div class="toggle-thumb"></div></div></label>
+        </div>
+
+        <div class="section-label">Drivetrain</div>
+        <div class="field-row">
+          <div class="field-label">RPM de la base</div>
+          <div class="num-input-wrap"><input id="r-rpm" type="number" value="600" step="1" min="0"><span class="num-unit">rpm</span></div>
+        </div>
+        <div class="field-row">
+          <div class="field-label">Velocidad <small>rev / segundo</small></div>
+          <div class="num-input-wrap"><input id="r-rps" type="number" value="10" step="1" min="0"><span class="num-unit">r/s</span></div>
+        </div>
+        <div class="field-row">
+          <div class="field-label">Diámetro rueda</div>
+          <div class="num-input-wrap"><input id="r-wheel" type="number" value="4.0" step="0.125" min="0"><span class="num-unit">in</span></div>
+        </div>
+
+      </div>
+    </div><!-- /tab-robot -->
+
+    <!-- ══ TAB: CÓDIGO ══ -->
+    <div class="tab-pane" id="tab-codigo">
+      <div class="code-section">
+        <div class="code-hint">
+          Usa <b>{nombre}</b> para insertar variables. Ej: <b>chassis.move({x}, {y})</b>
+        </div>
+        <div class="code-scroll">
+          <div class="cs-label std">Bloques estándar</div>
+          <div id="template-list"></div>
+
+          <div class="cs-label custom" style="margin-top:14px;">Bloques personalizados</div>
+          <div id="custom-list"></div>
+
+          <button class="add-custom-btn" id="btn-add-custom">＋ Nuevo bloque</button>
+
+          <div class="new-block-form" id="new-block-form">
+            <div class="cc-field">
+              <span class="cc-field-label">Nombre del bloque</span>
+              <input class="cc-input" id="nbf-name" type="text" placeholder="MiAccion...">
+            </div>
+            <div class="cc-field">
+              <div class="args-label">
+                Argumentos
+                <button class="args-add-btn" id="nbf-add-arg">+ arg</button>
+              </div>
+              <div class="args-list" id="nbf-args-list"></div>
+            </div>
+            <div class="cc-field">
+              <span class="cc-field-label">Plantilla de código</span>
+              <input class="cc-tmpl-input" id="nbf-template" type="text" placeholder="miFunc({arg1}, {arg2})">
+            </div>
+            <div class="nbf-row">
+              <button class="nbf-btn ok"     id="nbf-confirm">Crear</button>
+              <button class="nbf-btn cancel" id="nbf-cancel">Cancelar</button>
+            </div>
+          </div>
+
+        </div><!-- /code-scroll -->
+      </div>
+    </div><!-- /tab-codigo -->
+
+  </div><!-- /robot-panel -->
+</div><!-- /workspace -->
+
+<!-- ══════════════════ CONTEXT MENUS ══════════════════ -->
+
+<!-- Vertex menu -->
+<div class="ctx-menu" id="ctx-menu">
+  <div class="ctx-header" id="ctx-label">Vértice (0, 0)</div>
+  <button class="ctx-item" id="ctx-teleport">
+    <span class="ctx-icon">⊙</span> Teletransportar robot aquí
+  </button>
+  <button class="ctx-item" id="ctx-place-block">
+    <span class="ctx-icon">▪</span> Colocar bloque aquí
+  </button>
+  <button class="ctx-item" id="ctx-place-loader">
+    <span class="ctx-icon">⬡</span> Colocar loader aquí
+  </button>
+</div>
+
+<!-- Block menu -->
+<div class="blk-menu" id="blk-menu">
+  <div class="ctx-header" id="blk-menu-title">Bloque</div>
+  <div class="blk-section">
+    <div class="blk-section-label">Color</div>
+    <div class="blk-color-row">
+      <button class="blk-color-btn red"  data-color="red">🔴 Rojo</button>
+      <button class="blk-color-btn blue" data-color="blue">🔵 Azul</button>
+    </div>
+  </div>
+  <div class="blk-section">
+    <div class="blk-section-label">Ubicación</div>
+    <div class="blk-place-grid" id="blk-place-grid">
+      <button class="blk-place-btn" data-place="intake">Intake</button>
+      <button class="blk-place-btn" data-place="storage">Storage</button>
+      <button class="blk-place-btn" data-place="holding">Holding</button>
+      <button class="blk-place-btn" data-place="longgoal">Long Goal</button>
+      <button class="blk-place-btn" data-place="lowergoal">Lower Goal</button>
+      <button class="blk-place-btn" data-place="uppergoal">Upper Goal</button>
+      <button class="blk-place-btn" data-place="field">En campo…</button>
+    </div>
+  </div>
+  <div class="blk-section" id="blk-loc-section" style="display:none;">
+    <div class="blk-section-label">Posición en campo</div>
+    <div class="blk-loc-row">
+      <span class="blk-loc-val" id="blk-loc-val">—</span>
+      <button class="blk-pick-btn" id="blk-pick-btn">Elegir</button>
+    </div>
+  </div>
+  <button class="blk-delete-btn" id="blk-delete-btn">Eliminar bloque</button>
+</div>
+
+<!-- Loader menu -->
+<div class="ldr-menu" id="ldr-menu">
+  <div class="ldr-header" id="ldr-menu-title">Loader</div>
+  <div class="ldr-slots-wrap" id="ldr-slots-wrap"></div>
+  <button class="ldr-delete-btn" id="ldr-delete-btn">Eliminar loader</button>
+</div>
+
+<!-- ══════════════════ SCRIPTS ══════════════════
+     Orden importante: state → storage → canvas →
+     objects → interaction → code → init
+═══════════════════════════════════════════════ -->
+<script src="js/state.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/canvas.js"></script>
+<script src="js/blocks.js"></script>
+<script src="js/loaders.js"></script>
+<script src="js/interaction.js"></script>
+<script src="js/code.js"></script>
+<script src="js/init.js"></script>
+
+</body>
+</html>
