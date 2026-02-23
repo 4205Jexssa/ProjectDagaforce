@@ -29,7 +29,7 @@ function drawLoaders() {
     const img = top === 'red' ? imgLoaderRed : top === 'blue' ? imgLoaderBlue : imgLoaderEmpty;
 
     // Lado rojo = azulejos 1-3 = x < 72 in
-    const angle = (loader.x < 72) ? -Math.PI / 2 : Math.PI / 2;
+    const angle = (loader.y < 72) ? -Math.PI / 2 : Math.PI / 2;
 
     // ── Draw image (rotated) ──
     if (img.complete && img.naturalWidth > 0) {
